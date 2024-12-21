@@ -1,6 +1,7 @@
 #include "../../Data_Structures/Containers/Dynamic_Array.hpp"
 #include "../../Data_Structures/Containers/Pair.hpp"
 #include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
+#include <iterator>
 #include <tuple>
 #include <variant>
 
@@ -26,6 +27,8 @@ struct CompositeKey {
     bool operator==(const CompositeKey& other) const {
         return parameters_ == other.parameters_;
     };
+    
+    std::string to_string() const;
 
     // using EmployeeKey = CompositeKey<std::string, int>; // name, age
     // BPlusTree<EmployeeKey, RecordId> tree;
@@ -61,18 +64,34 @@ class BPlusTree {
         void insert_key_at(size_t index, const Key& key);
         void insert_key_at(size_t index, Key&& key);
 
+        void remove_key_at(size_t index);
+        void remove_child_at(size_t index);
+
         void insert_child_at(size_t index, const std::variant<SharedPtr<Node>, RecordId>& child);
     };
 
+// ----------------------------------
+    
     SharedPtr<Node> root_;
+    size_t size_ = 0;
+    
+    using NodePtr = SharedPtr<Node>;
+    using ChildVariant = std::variant<SharedPtr<Node>, RecordId>;
 
-    size_t size = 0;
-
+// ----------------------------------
   private:
 
-    void split_child(SharedPtr<Node> parent, size_t child_index);
+    size_t split_child(SharedPtr<Node> parent, size_t child_index);
+
+    size_t find_position(const Key& key, const DynamicArray<Key>& keys) const;
 
     SharedPtr<Node> find_leaf(const Key& key);
+
+    DynamicArray<SharedPtr<Node>> find_path(const Key& key);
+
+    void balance_after_delete(SharedPtr<Node> node);
+
+    bool try_borrow_from_sibling(SharedPtr<Node> node, bool try_left);
 
     bool is_less_or_eq(const Key& key1, const Key& key2) const;
 
@@ -89,16 +108,29 @@ class BPlusTree {
         
         size_t current_index_;
 
+        using value_type = Pair<const Key&, RecordId>;
+        using reference = value_type&;
+        using pointer = value_type*;
+        using iterator_category = std::forward_iterator_tag;
+
       public:
-        
+       
+        Iterator(SharedPtr<Node> node = nullptr, size_t index = 0) : current_node_(node), current_index_(index) {}
+
         Iterator& operator++();
         
         Pair<const Key&, RecordId> operator*() const;
 
-        bool operator==(const Iterator& other) const;
+        bool operator==(const Iterator& other) const {
+            return (*this == other);
+        }
+
+        bool operator!=(const Iterator& other) const {
+            return !(*this == other);
+        }
     };
 
-    BPlusTree() : root_(nullptr) {}
+    BPlusTree() : root_(nullptr), size_(0) {}
 
     BPlusTree(const BPlusTree& other);
 
@@ -128,6 +160,12 @@ class BPlusTree {
     bool empty();
 
     void clear();
+
+    bool is_underflow() const { return (size_ < (Order - 1) / 2); }
+
+    size_t get_size() const noexcept { return size_; }
+
+    size_t get_height() const;
 };
 
 
