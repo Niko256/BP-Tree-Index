@@ -1,4 +1,7 @@
+#pragma once
+
 #include "../../Data_Structures/Containers/Dynamic_Array.hpp"
+#include "../../Data_Structures/Containers/List.hpp"
 #include "../../Data_Structures/Containers/Pair.hpp"
 #include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
 #include <iterator>
@@ -8,32 +11,26 @@
 
 template <typename... Keys>
 struct CompositeKey {
+
     std::tuple<Keys...> parameters_;
 
     CompositeKey(Keys... keys) : parameters_(std::make_tuple(keys...)) {}
 
     template <size_t I>
-    const auto& get() const {
-        return std::get<I>(parameters_);
-    }
+    const auto& get() const;
 
     template <size_t N>
     bool matches_prefix(const CompositeKey& other) const;
 
-    bool operator<(const CompositeKey& other) const {
-        return parameters_ < other.parameters_;
-    }
+    bool operator<(const CompositeKey& other) const;
 
-    bool operator==(const CompositeKey& other) const {
-        return parameters_ == other.parameters_;
-    };
+    bool operator==(const CompositeKey& other) const;
     
     std::string to_string() const;
 
     // using EmployeeKey = CompositeKey<std::string, int>; // name, age
     // BPlusTree<EmployeeKey, RecordId> tree;
 };
-
 
 
 template <typename Key, typename RecordId, size_t Order = 128>
@@ -43,23 +40,27 @@ class BPlusTree {
     struct Node {
 
         bool is_leaf_ = true;
+
+        bool is_root_ = false;
         
         SharedPtr<Node> next_leaf_;
+        SharedPtr<Node> prev_leaf_;
 
         DynamicArray<Key> keys_;
         
         DynamicArray<std::variant<SharedPtr<Node>, RecordId>> children_;
 
+
         Node(bool leaf) : is_leaf_(leaf) {}
 
-        size_t size() const { return keys_.size(); }
+        size_t size() const;
 
         SharedPtr<Node> get_child(size_t index);
 
         RecordId get_record(size_t index);
 
         bool is_full() const;
-        bool has_min_keys() const noexcept { return size() >= Order - 1; }
+        bool has_min_keys() const noexcept;
 
         void insert_key_at(size_t index, const Key& key);
         void insert_key_at(size_t index, Key&& key);
@@ -73,12 +74,14 @@ class BPlusTree {
 // ----------------------------------
     
     SharedPtr<Node> root_;
+    SharedPtr<Node> last_accessed_leaf_;
     size_t size_ = 0;
     
     using NodePtr = SharedPtr<Node>;
     using ChildVariant = std::variant<SharedPtr<Node>, RecordId>;
-
+    
 // ----------------------------------
+
   private:
 
     size_t split_child(SharedPtr<Node> parent, size_t child_index);
@@ -121,14 +124,35 @@ class BPlusTree {
         
         Pair<const Key&, RecordId> operator*() const;
 
-        bool operator==(const Iterator& other) const {
-            return (*this == other);
-        }
+        bool operator==(const Iterator& other) const;
 
-        bool operator!=(const Iterator& other) const {
-            return !(*this == other);
-        }
+        bool operator!=(const Iterator& other) const;
     };
+
+    class ConstIterator {
+      private:
+      
+        SharedPtr<const Node> current_node_;  
+        size_t current_index_;
+
+        using value_type = Pair<const Key&, const RecordId&>;
+        using reference = const value_type&;
+        using pointer = const value_type*;
+        using iterator_category = std::forward_iterator_tag;
+
+      public:
+
+        ConstIterator(SharedPtr<const Node> node = nullptr, size_t index = 0)
+            : current_node_(node), current_index_(index) {}
+
+        ConstIterator& operator++();
+
+        const Pair<const Key&, const RecordId&> operator*() const;
+
+        bool operator==(const ConstIterator& other) const;
+        bool operator!=(const ConstIterator& other) const;
+    };
+
 
     BPlusTree() : root_(nullptr), size_(0) {}
 
@@ -153,19 +177,21 @@ class BPlusTree {
     
     DynamicArray<RecordId> range_search(const Key& from, const Key& to);
 
-
     Iterator begin();
     Iterator end();
+    ConstIterator cbegin() const;
+    ConstIterator cend() const;
 
     bool empty();
 
     void clear();
 
-    bool is_underflow() const { return (size_ < (Order - 1) / 2); }
+    bool is_underflow() const;
 
-    size_t get_size() const noexcept { return size_; }
+    size_t get_size() const noexcept;
 
     size_t get_height() const;
 };
 
-
+#include "BP-Tree.tpp"
+#include "CompositeKey.tpp"
