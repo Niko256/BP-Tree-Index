@@ -1,6 +1,10 @@
+#pragma once
+
 #include "../../Data_Structures/Containers/Dynamic_Array.hpp"
 #include "../../Data_Structures/Containers/Pair.hpp"
 #include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
+#include <functional>
+#include <shared_mutex>
 #include <tuple>
 #include <variant>
 
@@ -12,84 +16,109 @@ struct CompositeKey {
     CompositeKey(Keys... keys) : parameters_(std::make_tuple(keys...)) {}
 
     template <size_t I>
-    const auto& get() const {
-        return std::get<I>(parameters_);
-    }
+    const auto& get() const; 
 
     template <size_t N>
     bool matches_prefix(const CompositeKey& other) const;
 
-    bool operator<(const CompositeKey& other) const {
-        return parameters_ < other.parameters_;
+    bool operator<(const CompositeKey& other) const;
+
+    bool operator==(const CompositeKey& other) const; 
+
+    // Example:
+    //      using EmployeeKey = CompositeKey<std::string, int>; // name, age
+    //      BPlusTree<EmployeeKey, RecordId> tree;
+};
+
+
+// CRTP
+template <typename Derived> struct BaseNode {
+    bool is_leaf() const {
+        return static_cast<const Derived*>(this)->is_leaf_impl();
     }
+}; 
 
-    bool operator==(const CompositeKey& other) const {
-        return parameters_ == other.parameters_;
-    };
 
-    // using EmployeeKey = CompositeKey<std::string, int>; // name, age
-    // BPlusTree<EmployeeKey, RecordId> tree;
+template <typename Key, typename RecordId>
+struct InternalNode : public BaseNode<InternalNode<Key, RecordId>> {
+
+    mutable std::shared_mutex mutex_;
+
+    DynamicArray<Key> keys_;
+    DynamicArray<SharedPtr<BaseNode<InternalNode<Key, RecordId>>>> children_;
+       
+    bool is_leaf_impl() const noexcept { return false; }
+
+    size_t size() const; 
+    bool is_full() const;
+
+    void insert_key_at(size_t index, const Key& key);
+    void insert_key_at(size_t index, Key&& key);
+
+};
+
+template <typename Key, typename RecordId>
+struct LeafNode : public BaseNode<LeafNode<Key, RecordId>> {
+    
+    mutable std::shared_mutex mutex_;
+
+    DynamicArray<Key> keys_;
+    DynamicArray<RecordId> values_;
+        
+    SharedPtr<LeafNode> next_;
+
+    bool is_leaf_impl() const noexcept { return true; }
+
+    size_t size() const; 
+    bool is_full() const;
+
 };
 
 
 
-template <typename Key, typename RecordId, size_t Order = 128>
+template <typename Key, typename RecordId, size_t Order = 128, typename compare = std::less<Key>>
 class BPlusTree {
+  
   private:
 
-    struct Node {
+// ------------------------------------
+    
+    using InternalNodePtr = SharedPtr<InternalNode<Key, RecordId>>;
+    using LeafNodePtr = SharedPtr<LeafNode<Key, RecordId>>;
 
-        bool is_leaf_ = true;
-        
-        SharedPtr<Node> next_leaf_;
+    using VariantNode = std::variant<InternalNodePtr, LeafNodePtr>;
 
-        DynamicArray<Key> keys_;
-        
-        DynamicArray<std::variant<SharedPtr<Node>, RecordId>> children_;
+    mutable std::shared_mutex root_mutex_;
+    VariantNode root_;
+    
+    size_t size_ = 0;
 
-        Node(bool leaf) : is_leaf_(leaf) {}
+    compare comparator_;
 
-        size_t size() const { return keys_.size(); }
+// -------------------------------------
 
-        SharedPtr<Node> get_child(size_t index);
+    void split_child(VariantNode& parent, size_t child_index);
 
-        RecordId get_record(size_t index);
-
-        bool is_full() const;
-        bool has_min_keys() const noexcept { return size() >= Order - 1; }
-
-        void insert_key_at(size_t index, const Key& key);
-        void insert_key_at(size_t index, Key&& key);
-
-        void insert_child_at(size_t index, const std::variant<SharedPtr<Node>, RecordId>& child);
-    };
-
-    SharedPtr<Node> root_;
-
-    size_t size = 0;
-
-  private:
-
-    void split_child(SharedPtr<Node> parent, size_t child_index);
-
-    SharedPtr<Node> find_leaf(const Key& key);
+    LeafNodePtr find_leaf(const Key& key);
 
     bool is_less_or_eq(const Key& key1, const Key& key2) const;
 
-    void redistrebute_nodes(SharedPtr<Node> left, SharedPtr<Node> right);
+    void redistrebute_nodes(VariantNode& left, VariantNode& right);
 
-    void merge_nodes(SharedPtr<Node> left, SharedPtr<Node> right);
+    void merge_nodes(VariantNode& left, VariantNode& right);
 
   public:
     
     class Iterator {
       private:
       
-        SharedPtr<Node> current_node_;
+        LeafNodePtr current_node_;
         
         size_t current_index_;
 
       public:
+
+        Iterator(LeafNodePtr node = nullptr, size_t index = 0);
         
         Iterator& operator++();
         
@@ -98,7 +127,7 @@ class BPlusTree {
         bool operator==(const Iterator& other) const;
     };
 
-    BPlusTree() : root_(nullptr) {}
+    BPlusTree() : root_(LeafNodePtr{}) {}
 
     BPlusTree(const BPlusTree& other);
 
@@ -125,9 +154,10 @@ class BPlusTree {
     Iterator begin();
     Iterator end();
 
-    bool empty();
+    bool empty() const;
 
     void clear();
 };
 
-
+#include "Composite-Key.tpp"
+#include "BP-Tree.tpp"
