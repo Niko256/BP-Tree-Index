@@ -4,6 +4,7 @@
 #include "../../Data_Structures/Containers/Pair.hpp"
 #include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
 #include <functional>
+#include <iterator>
 #include <shared_mutex>
 #include <tuple>
 #include <variant>
@@ -39,13 +40,13 @@ template <typename Derived> struct BaseNode {
 }; 
 
 
-template <typename Key, typename RecordId>
-struct InternalNode : public BaseNode<InternalNode<Key, RecordId>> {
+template <typename Key, typename RecordId, size_t Order>
+struct InternalNode : public BaseNode<InternalNode<Key, RecordId, Order>> {
 
     mutable std::shared_mutex mutex_;
 
     DynamicArray<Key> keys_;
-    DynamicArray<SharedPtr<BaseNode<InternalNode<Key, RecordId>>>> children_;
+    DynamicArray<SharedPtr<BaseNode<InternalNode<Key, RecordId, Order>>>> children_;
        
     bool is_leaf_impl() const noexcept { return false; }
 
@@ -57,8 +58,8 @@ struct InternalNode : public BaseNode<InternalNode<Key, RecordId>> {
 
 };
 
-template <typename Key, typename RecordId>
-struct LeafNode : public BaseNode<LeafNode<Key, RecordId>> {
+template <typename Key, typename RecordId, size_t Order>
+struct LeafNode : public BaseNode<LeafNode<Key, RecordId, Order>> {
     
     mutable std::shared_mutex mutex_;
 
@@ -72,6 +73,8 @@ struct LeafNode : public BaseNode<LeafNode<Key, RecordId>> {
     size_t size() const; 
     bool is_full() const;
 
+    RecordId get_record(size_t index) const;
+
 };
 
 
@@ -83,8 +86,8 @@ class BPlusTree {
 
 // ------------------------------------
     
-    using InternalNodePtr = SharedPtr<InternalNode<Key, RecordId>>;
-    using LeafNodePtr = SharedPtr<LeafNode<Key, RecordId>>;
+    using InternalNodePtr = SharedPtr<InternalNode<Key, RecordId, Order>>;
+    using LeafNodePtr = SharedPtr<LeafNode<Key, RecordId, Order>>;
 
     using VariantNode = std::variant<InternalNodePtr, LeafNodePtr>;
 
@@ -116,15 +119,48 @@ class BPlusTree {
         
         size_t current_index_;
 
+        using value_type = Pair<const Key&, RecordId>;
+        using reference = value_type&;
+        using pointer = value_type*;
+        using iterator_category = std::forward_iterator_tag;
+
       public:
 
         Iterator(LeafNodePtr node = nullptr, size_t index = 0);
         
         Iterator& operator++();
         
-        Pair<const Key&, RecordId> operator*() const;
+        Pair<const Key&, RecordId&> operator*() const;
 
         bool operator==(const Iterator& other) const;
+        bool operator!=(const Iterator& other) const;
+    };
+
+    class ConstIterator {
+      private:
+        
+        LeafNodePtr current_node_;
+
+        size_t current_index_;
+
+        using value_type = Pair<const Key&, const RecordId&>;
+        using reference = const value_type&;
+        using pointer = const value_type*;
+        using iterator_category = std::forward_iterator_tag;
+
+      public:
+
+
+        ConstIterator(LeafNodePtr node = nullptr, size_t index = 0)
+            : current_node_(node), current_index_(index) {}
+
+        ConstIterator& operator++();
+
+        const Pair<const Key&, const RecordId&> operator*() const;
+
+        bool operator==(const ConstIterator& other) const;
+        bool operator!=(const ConstIterator& other) const;
+
     };
 
     BPlusTree() : root_(LeafNodePtr{}) {}
