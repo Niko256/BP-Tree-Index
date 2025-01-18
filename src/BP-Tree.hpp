@@ -31,6 +31,13 @@ struct CompositeKey {
     //      BPlusTree<EmployeeKey, RecordId> tree;
 };
 
+// forward declaration
+template <typename Key, typename RecordId, size_t Order>
+struct InternalNode;
+
+template <typename Key, typename RecordId, size_t Order>
+struct LeafNode;
+
 
 // CRTP
 template <typename Derived> struct BaseNode {
@@ -41,12 +48,19 @@ template <typename Derived> struct BaseNode {
 
 
 template <typename Key, typename RecordId, size_t Order>
+using VariantNode = std::variant<
+    SharedPtr<InternalNode<Key, RecordId, Order>>, 
+    SharedPtr<LeafNode<Key, RecordId, Order>>, 
+    std::monostate>;
+
+
+template <typename Key, typename RecordId, size_t Order>
 struct InternalNode : public BaseNode<InternalNode<Key, RecordId, Order>> {
 
     mutable std::shared_mutex mutex_;
 
     DynamicArray<Key> keys_;
-    DynamicArray<SharedPtr<BaseNode<InternalNode<Key, RecordId, Order>>>> children_;
+    DynamicArray<VariantNode<Key, RecordId, Order>> children_;
        
     bool is_leaf_impl() const noexcept { return false; }
 
@@ -89,10 +103,8 @@ class BPlusTree {
     using InternalNodePtr = SharedPtr<InternalNode<Key, RecordId, Order>>;
     using LeafNodePtr = SharedPtr<LeafNode<Key, RecordId, Order>>;
 
-    using VariantNode = std::variant<InternalNodePtr, LeafNodePtr>;
-
     mutable std::shared_mutex root_mutex_;
-    VariantNode root_;
+    VariantNode<Key, RecordId, Order> root_;
     
     size_t size_ = 0;
 
@@ -100,15 +112,23 @@ class BPlusTree {
 
 // -------------------------------------
 
-    void split_child(VariantNode& parent, size_t child_index);
+    void split_child(VariantNode<Key, RecordId, Order>& parent, size_t child_index);
 
     LeafNodePtr find_leaf(const Key& key);
 
     bool is_less_or_eq(const Key& key1, const Key& key2) const;
 
-    void redistrebute_nodes(VariantNode& left, VariantNode& right);
+    void redistrebute_nodes(VariantNode<Key, RecordId, Order>& lhs, VariantNode<Key, RecordId, Order>& rhs);
 
-    void merge_nodes(VariantNode& left, VariantNode& right);
+    void merge_nodes(VariantNode<Key, RecordId, Order>& left, VariantNode<Key, RecordId, Order>& right);
+
+    void balance_after_remove(LeafNodePtr node);
+
+    SharedPtr<InternalNode<Key, RecordId, Order>> find_parent(LeafNodePtr node);
+
+    SharedPtr<InternalNode<Key, RecordId, Order>> copy_nodes(const SharedPtr<InternalNode<Key, RecordId, Order>>& node);
+
+    SharedPtr<InternalNode<Key, RecordId, Order>> copy_nodes(const SharedPtr<LeafNode<Key, RecordId, Order>>& node);
 
   public:
     
@@ -173,9 +193,9 @@ class BPlusTree {
 
     BPlusTree& operator=(BPlusTree&& other) noexcept;
 
-    ~BPlusTree();
+    ~BPlusTree() = default;
 
-    void insert(const Key& key, RecordId id);
+    void insert(const Key& key, RecordId& id);
 
     void remove(const Key& key);
 
@@ -185,7 +205,6 @@ class BPlusTree {
     DynamicArray<RecordId> find(const Key& key);
     
     DynamicArray<RecordId> range_search(const Key& from, const Key& to);
-
 
     Iterator begin();
     Iterator end();
