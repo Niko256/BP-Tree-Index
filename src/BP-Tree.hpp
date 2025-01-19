@@ -4,7 +4,6 @@
 #include "../../Data_Structures/Containers/Pair.hpp"
 #include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
 #include <functional>
-#include <iterator>
 #include <shared_mutex>
 #include <tuple>
 #include <variant>
@@ -64,8 +63,6 @@ struct LeafNode;
 template <typename Derived> struct BaseNode {
     /**
      * @brief Checks if the node is a leaf node.
-     * 
-     * @return bool True if the node is a leaf, false otherwise.
      */
     bool is_leaf() const {
         return static_cast<const Derived*>(this)->is_leaf_impl();
@@ -102,40 +99,26 @@ struct InternalNode : public BaseNode<InternalNode<Key, RecordId, Order>> {
 
     /**
      * @brief Checks if the node is a leaf node.
-     * 
-     * @return bool Always returns false for internal nodes.
      */
     bool is_leaf_impl() const noexcept { return false; }
 
     /**
      * @brief Returns the number of keys in the node.
-     * 
-     * @return size_t The number of keys.
      */
     size_t size() const;
 
     /**
      * @brief Checks if the node is full.
-     * 
-     * A node is full if it contains the maximum number of keys.
-     * 
-     * @return bool True if the node is full, false otherwise.
      */
     bool is_full() const;
 
     /**
      * @brief Inserts a key at the specified index.
-     * 
-     * @param index The index at which to insert the key.
-     * @param key The key to insert.
      */
     void insert_key_at(size_t index, const Key& key);
 
     /**
      * @brief Inserts a key at the specified index using move semantics.
-     * 
-     * @param index The index at which to insert the key.
-     * @param key The key to insert.
      */
     void insert_key_at(size_t index, Key&& key);
 };
@@ -228,10 +211,6 @@ class BPlusTree {
      * @brief Checks if the first key is less than or equal to the second key.
      * 
      * This method uses the comparator function to compare two keys.
-     * 
-     * @param key1 The first key.
-     * @param key2 The second key.
-     * @return bool True if key1 <= key2, false otherwise.
      */
     bool is_less_or_eq(const Key& key1, const Key& key2) const;
 
@@ -239,9 +218,6 @@ class BPlusTree {
      * @brief Redistributes keys and children between two nodes to balance them.
      * 
      * This method is called during deletion to balance underflowed nodes.
-     * 
-     * @param lhs The left node.
-     * @param rhs The right node.
      */
     void redistribute_nodes(VariantNode<Key, RecordId, Order>& lhs, VariantNode<Key, RecordId, Order>& rhs);
 
@@ -250,9 +226,6 @@ class BPlusTree {
      * 
      * This method is called during deletion to merge two nodes when redistribution
      * is not possible.
-     * 
-     * @param left The left node.
-     * @param right The right node.
      */
     void merge_nodes(VariantNode<Key, RecordId, Order>& left, VariantNode<Key, RecordId, Order>& right);
 
@@ -270,8 +243,7 @@ class BPlusTree {
      * 
      * This method traverses the tree to locate the parent of the specified leaf node.
      * 
-     * @param node The leaf node whose parent is to be found.
-     * @return SharedPtr<InternalNode<Key, RecordId, Order>> A pointer to the parent node.
+     * @return a pointer to the parent node.
      */
     SharedPtr<InternalNode<Key, RecordId, Order>> find_parent(LeafNodePtr node);
 
@@ -279,19 +251,11 @@ class BPlusTree {
      * @brief Creates a deep copy of an internal node and its children.
      * 
      * This method is used during tree copying to recursively clone nodes.
-     * 
-     * @param node The internal node to copy.
-     * @return SharedPtr<InternalNode<Key, RecordId, Order>> A pointer to the copied node.
      */
     SharedPtr<InternalNode<Key, RecordId, Order>> copy_nodes(const SharedPtr<InternalNode<Key, RecordId, Order>>& node);
 
     /**
      * @brief Creates a deep copy of a leaf node.
-     * 
-     * This method is used during tree copying to clone leaf nodes.
-     * 
-     * @param node The leaf node to copy.
-     * @return SharedPtr<LeafNode<Key, RecordId, Order>> A pointer to the copied node.
      */
     SharedPtr<LeafNode<Key, RecordId, Order>> copy_nodes(const SharedPtr<LeafNode<Key, RecordId, Order>>& node);
 
@@ -347,15 +311,12 @@ class BPlusTree {
     /**
      * @brief Inserts a key-value pair into the tree.
      * 
-     * @param key The key to insert.
-     * @param id The record ID associated with the key.
      */
     void insert(const Key& key, RecordId& id);
 
     /**
      * @brief Removes a key-value pair from the tree.
      * 
-     * @param key The key to remove.
      */
     void remove(const Key& key);
 
