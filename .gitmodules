@@ -1,0 +1,3 @@
+[submodule "external/Data_Structures"]
+	path = external/Data_Structures
+	url = https://github.com/Niko256/Data_Structures.git
