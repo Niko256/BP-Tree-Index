@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../Data_Structures/Containers/Dynamic_Array.hpp"
-#include "../../Data_Structures/Containers/Pair.hpp"
-#include "../../Data_Structures/SmartPtrs/include/SharedPtr.hpp"
+#include "../external/Data_Structures/Containers/Dynamic_Array.hpp"
+#include "../external/Data_Structures/Containers/Pair.hpp"
+#include "../external/Data_Structures/SmartPtrs/include/SharedPtr.hpp"
 #include <functional>
 #include <shared_mutex>
 #include <tuple>
