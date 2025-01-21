@@ -1,0 +1,1 @@
+/usr/bin/c++  -g CMakeFiles/tests.dir/tests/basic_tests.cpp.o -o tests  libBPlusTreeLib.a /usr/lib/x86_64-linux-gnu/libgtest_main.a /usr/lib/x86_64-linux-gnu/libgtest.a

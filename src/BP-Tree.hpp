@@ -97,29 +97,25 @@ struct InternalNode : public BaseNode<InternalNode<Key, RecordId, Order>> {
     
     DynamicArray<VariantNode<Key, RecordId, Order>> children_; ///< Array of child nodes.
 
-    /**
-     * @brief Checks if the node is a leaf node.
-     */
     bool is_leaf_impl() const noexcept { return false; }
 
-    /**
-     * @brief Returns the number of keys in the node.
-     */
+    InternalNode() : keys_(), children_() {
+        std::cout << "InternalNode created\n";
+    }
+
+    ~InternalNode() {
+        std::cout << "InternalNode destroyed\n";
+    }
+
+    explicit InternalNode(size_t initial_capacity)
+        : keys_(initial_capacity), children_(initial_capacity) {}
+
     size_t size() const;
 
-    /**
-     * @brief Checks if the node is full.
-     */
     bool is_full() const;
 
-    /**
-     * @brief Inserts a key at the specified index.
-     */
     void insert_key_at(size_t index, const Key& key);
 
-    /**
-     * @brief Inserts a key at the specified index using move semantics.
-     */
     void insert_key_at(size_t index, Key&& key);
 };
 
@@ -148,6 +144,11 @@ struct LeafNode : public BaseNode<LeafNode<Key, RecordId, Order>> {
 
 
     bool is_leaf_impl() const noexcept { return true; }
+
+    LeafNode() : keys_(), values_(), next_(nullptr) {}
+
+    explicit LeafNode(size_t initial_capacity)
+        : keys_(initial_capacity), values_(initial_capacity), next_(nullptr) {}
 
     size_t size() const;
 
