@@ -1,5 +1,0 @@
-if(EXISTS "/home/niko256/projects/cpp/BP-Tree-Index/build/tests[1]_tests.cmake")
-  include("/home/niko256/projects/cpp/BP-Tree-Index/build/tests[1]_tests.cmake")
-else()
-  add_test(tests_NOT_BUILT tests_NOT_BUILT)
-endif()
