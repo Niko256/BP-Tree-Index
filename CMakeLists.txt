@@ -8,7 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 find_package(GTest REQUIRED)
 
-file(GLOB_RECURCE IMPL src/*.tpp)
+file(GLOB_RECURSE IMPL src/*.tpp)
 add_library(BPlusTreeLib STATIC
     ${IMPL}    
 )
@@ -24,7 +24,7 @@ target_link_libraries(Index PRIVATE BPlusTreeLib)
 if(GTEST_FOUND)
     enable_testing()
 
-    file(GLOB_RECURCE TEST_FILES tests/*.cpp)
+    file(GLOB_RECURSE TEST_FILES tests/*.cpp)
 
     add_executable(tests ${TEST_FILES})
     target_link_libraries(tests

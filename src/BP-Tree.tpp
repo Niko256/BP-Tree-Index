@@ -141,85 +141,58 @@ bool BPlusTree<Key, RecordId, Order, compare>::ConstIterator::operator!=(const C
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::split_child(VariantNode<Key, RecordId, Order>& parent, size_t child_index) {
-
-    // Cast the parent node to an InternalNodePtr since we know it's an internal node
     auto parent_internal = std::get<InternalNodePtr>(parent);
-    
-    // Get the child node that needs to be split
     auto child = parent_internal->children_[child_index];
-
-    // Check if the child is an internal node (non-leaf node)
     
     if (std::holds_alternative<InternalNodePtr>(child)) {
-        // Cast the child to an InternalNodePtr
         auto child_internal = std::get<InternalNodePtr>(child);
-        
-        // Create a new internal node to hold the second half of the keys and children
         auto new_node = SharedPtr<InternalNode<Key, RecordId, Order>>(new InternalNode<Key, RecordId, Order>());
-
-        // Calculate the midpoint for splitting
-        size_t mid = (Order - 1) / 2;
         
-        // Get the median key which will be promoted to the parent
+        size_t mid = (Order - 1) / 2;
         Key median = child_internal->keys_[mid];
 
-        // Assign the second half of the keys and children to the new node
-        new_node->keys_.assign(child_internal->keys_.begin() + mid + 1, child_internal->keys_.end());
-        new_node->children_.assign(child_internal->children_.begin() + mid + 1, child_internal->children_.end());
+        // Copy the second half of keys
+        for (size_t i = mid + 1; i < child_internal->keys_.size(); ++i) {
+            new_node->keys_.push_back(child_internal->keys_[i]);
+        }
+        // Copy the second half of children
+        for (size_t i = mid + 1; i < child_internal->children_.size(); ++i) {
+            new_node->children_.push_back(child_internal->children_[i]);
+        }
         
-        // Resize the original child node to contain only the first half of the keys and children
+        // Resize original child
         child_internal->keys_.resize(mid);
         child_internal->children_.resize(mid + 1);
 
-        // Insert the median key into the parent node at the appropriate index
         parent_internal->insert_key_at(child_index, median);
-        
-        // Insert the new node into the parent's children array
         parent_internal->children_.insert(
             parent_internal->children_.begin() + child_index + 1,
             VariantNode<Key, RecordId, Order>(new_node));
-
-        // If the parent node is now full, recursively split it
-        if (parent_internal->is_full()) {
-            split_child(parent, child_index);
-        }
-    
     } else {
-        // If the child is a leaf node, perform a similar split operation
         auto child_leaf = std::get<LeafNodePtr>(child);
-        
-        // Create a new leaf node to hold the second half of the keys and values
         auto new_leaf = SharedPtr<LeafNode<Key, RecordId, Order>>(new LeafNode<Key, RecordId, Order>());
-
-        // Calculate the midpoint for splitting
+        
         size_t mid = Order / 2;
 
-        // Assign the second half of the keys and values to the new leaf node
-        new_leaf->keys_.assign(child_leaf->keys_.begin() + mid, child_leaf->keys_.end());
-        new_leaf->values_.assign(child_leaf->values_.begin() + mid, child_leaf->values_.end());
+        // Copy the second half of keys and values
+        for (size_t i = mid; i < child_leaf->keys_.size(); ++i) {
+            new_leaf->keys_.push_back(child_leaf->keys_[i]);
+            new_leaf->values_.push_back(child_leaf->values_[i]);
+        }
         
-        // Resize the original leaf node to contain only the first half of the keys and values
+        // Resize original leaf
         child_leaf->keys_.resize(mid);
         child_leaf->values_.resize(mid);
 
-        // Update the linked list of leaf nodes
+        // Update leaf node links
         new_leaf->next_ = child_leaf->next_;
         child_leaf->next_ = new_leaf;
 
-        // Insert the first key of the new leaf node into the parent node
         parent_internal->insert_key_at(child_index, new_leaf->keys_[0]);
-        
-        // Insert the new leaf node into the parent's children array
         parent_internal->children_.insert(
             parent_internal->children_.begin() + child_index + 1,
             VariantNode<Key, RecordId, Order>(new_leaf));
-
-        // If the parent node is now full, recursively split it
-        if (parent_internal->is_full()) {
-            split_child(parent, child_index);
-        }
     }
-
     size_++;
 }
 
@@ -336,14 +309,15 @@ DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::range_search(co
  */
 
 template <typename Key, typename RecordId, size_t Order, typename Compare>
-void BPlusTree<Key, RecordId, Order, Compare>::insert(const Key& key, RecordId& id) {
+template <typename T>
+void BPlusTree<Key, RecordId, Order, Compare>::insert(const Key& key, T&& id) {
 
     std::unique_lock lock(root_mutex_);
     if (std::holds_alternative<std::monostate>(root_)) {
         // If the tree is empty, create a new leaf node
         auto new_leaf = SharedPtr<LeafNode<Key, RecordId, Order>>(new LeafNode<Key, RecordId, Order>());
         new_leaf->keys_.push_back(key);
-        new_leaf->values_.push_back(id);
+        new_leaf->values_.push_back(std::forward<T>(id));
         root_ = new_leaf;
     } else {
         // Find the leaf node where the key should be inserted
@@ -368,7 +342,7 @@ void BPlusTree<Key, RecordId, Order, Compare>::insert(const Key& key, RecordId& 
         } else {
             // Insert the key and value into the leaf node
             leaf->keys_.push_back(key);
-            leaf->values_.push_back(id);
+            leaf->values_.push_back(std::forward<T>(id));
         }
     }
     size_++;
@@ -450,27 +424,35 @@ template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::merge_nodes(
     VariantNode<Key, RecordId, Order>& left, VariantNode<Key, RecordId, Order>& right) {
 
-    // Check if both nodes are internal nodes
     if (std::holds_alternative<InternalNodePtr>(left) && std::holds_alternative<InternalNodePtr>(right)) {
         auto left_internal = std::get<InternalNodePtr>(left);
         auto right_internal = std::get<InternalNodePtr>(right);
 
-        // Combine keys and children from the right node into the left node
-        left_internal->keys_.insert(left_internal->keys_.end(), right_internal->keys_.begin(), right_internal->keys_.end());
-        left_internal->children_.insert(left_internal->children_.end(), right_internal->children_.begin(), right_internal->children_.end());
+        // Move all keys from right to left
+        for (const auto& key : right_internal->keys_) {
+            left_internal->keys_.push_back(key);
+        }
+        // Move all children from right to left
+        for (const auto& child : right_internal->children_) {
+            left_internal->children_.push_back(child);
+        }
 
         // Clear the right node
         right_internal->keys_.clear();
         right_internal->children_.clear();
 
     } else if (std::holds_alternative<LeafNodePtr>(left) && std::holds_alternative<LeafNodePtr>(right)) {
-        // If both nodes are leaf nodes
         auto left_leaf = std::get<LeafNodePtr>(left);
         auto right_leaf = std::get<LeafNodePtr>(right);
 
-        // Combine keys and values from the right node into the left node
-        left_leaf->keys_.insert(left_leaf->keys_.end(), right_leaf->keys_.begin(), right_leaf->keys_.end());
-        left_leaf->values_.insert(left_leaf->values_.end(), right_leaf->values_.begin(), right_leaf->values_.end());
+        // Move all keys from right to left
+        for (const auto& key : right_leaf->keys_) {
+            left_leaf->keys_.push_back(key);
+        }
+        // Move all values from right to left
+        for (const auto& value : right_leaf->values_) {
+            left_leaf->values_.push_back(value);
+        }
 
         // Update the linked list of leaf nodes
         left_leaf->next_ = right_leaf->next_;
@@ -517,7 +499,7 @@ void BPlusTree<Key, RecordId, Order, compare>::remove(const Key& key) {
 
     // If the leaf node becomes underfull, balance the tree
     if (leaf->size() < Order / 2) {
-        balance_after_remove(leaf);
+        balance_after_remove(VariantNode<Key, RecordId, Order>(leaf));
     }
 }
 
@@ -531,45 +513,69 @@ void BPlusTree<Key, RecordId, Order, compare>::remove(const Key& key) {
  */
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
-void BPlusTree<Key, RecordId, Order, compare>::balance_after_remove(LeafNodePtr node) {
-    // If the node is the root and becomes empty, set the root to null
-    if (node == std::get<LeafNodePtr>(root_)) {
-        if (node->size() == 0) {
-            root_ = LeafNodePtr{};
+void BPlusTree<Key, RecordId, Order, compare>::balance_after_remove(VariantNode<Key, RecordId, Order> node) {
+    if (std::holds_alternative<LeafNodePtr>(node)) {
+        auto leaf = std::get<LeafNodePtr>(node);
+        if (leaf == std::get<LeafNodePtr>(root_)) {
+            if (leaf->size() == 0) {
+                root_ = LeafNodePtr{};
+            }
+            return;
         }
-        return;
     }
 
     // Find the parent of the node
     auto parent = find_parent(node);
+    if (!parent) {
+        return;
+    }
+
     size_t index = 0;
-    while (index < parent->children_.size() && std::get<LeafNodePtr>(parent->children_[index]) != node) {
+    while (index < parent->children_.size() && parent->children_[index] != node) {
         index++;
     }
 
     // Check if the left sibling has extra keys
     if (index > 0) {
-        auto left_sibling = std::get<LeafNodePtr>(parent->children_[index - 1]);
-        if (left_sibling->size() > Order / 2) {
-            redistribute_nodes(parent->children_[index - 1], parent->children_[index]);
-            return;
+        auto left_sibling = parent->children_[index - 1];
+        if (std::holds_alternative<LeafNodePtr>(left_sibling)) {
+            auto left_leaf = std::get<LeafNodePtr>(left_sibling);
+            if (left_leaf->size() > Order / 2) {
+                redistribute_nodes(left_sibling, node);
+                return;
+            }
+        } else if (std::holds_alternative<InternalNodePtr>(left_sibling)) {
+            auto left_internal = std::get<InternalNodePtr>(left_sibling);
+            if (left_internal->size() > Order / 2) {
+                redistribute_nodes(left_sibling, node);
+                return;
+            }
         }
     }
 
     // Check if the right sibling has extra keys
     if (index < parent->children_.size() - 1) {
-        auto right_sibling = std::get<LeafNodePtr>(parent->children_[index + 1]);
-        if (right_sibling->size() > Order / 2) {
-            redistribute_nodes(parent->children_[index], parent->children_[index + 1]);
-            return;
+        auto right_sibling = parent->children_[index + 1];
+        if (std::holds_alternative<LeafNodePtr>(right_sibling)) {
+            auto right_leaf = std::get<LeafNodePtr>(right_sibling);
+            if (right_leaf->size() > Order / 2) {
+                redistribute_nodes(node, right_sibling);
+                return;
+            }
+        } else if (std::holds_alternative<InternalNodePtr>(right_sibling)) {
+            auto right_internal = std::get<InternalNodePtr>(right_sibling);
+            if (right_internal->size() > Order / 2) {
+                redistribute_nodes(node, right_sibling);
+                return;
+            }
         }
     }
 
     // If no sibling has extra keys, merge the node with a sibling
     if (index > 0) {
-        merge_nodes(parent->children_[index - 1], parent->children_[index]);
+        merge_nodes(parent->children_[index - 1], node);
     } else {
-        merge_nodes(parent->children_[index], parent->children_[index + 1]);
+        merge_nodes(node, parent->children_[index + 1]);
     }
 
     // If the parent becomes underfull, balance it
@@ -593,25 +599,37 @@ void BPlusTree<Key, RecordId, Order, compare>::balance_after_remove(LeafNodePtr 
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 SharedPtr<InternalNode<Key, RecordId, Order>>
-BPlusTree<Key, RecordId, Order, compare>::find_parent(LeafNodePtr node) {
+BPlusTree<Key, RecordId, Order, compare>::find_parent(VariantNode<Key, RecordId, Order> node) {
 
-    // If the node is the root, it has no parent
-    if (node == root_) {
-        return nullptr;
+    if (std::holds_alternative<LeafNodePtr>(root_)) {
+        return SharedPtr<InternalNode<Key, RecordId, Order>>{};
     }
+    
+    auto current = std::get<InternalNodePtr>(root_);
+    SharedPtr<InternalNode<Key, RecordId, Order>> parent = SharedPtr<InternalNode<Key, RecordId, Order>>{};
+    
+    while (current) {
+        for (size_t i = 0; i < current->children_.size(); i++) {
+            bool is_equal = std::visit([&node](auto&& arg) -> bool {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, std::monostate>) {
+                    return false;
+                } else {
+                    return arg == node;
+                }
+            }, current->children_[i]);
 
-    auto current = root_;
-    while (!std::holds_alternative<LeafNodePtr>(current)) {
-        auto internal_node = std::get<InternalNodePtr>(current);
-        for (size_t i = 0; i < internal_node->children_.size(); i++) {
-            if (std::holds_alternative<LeafNodePtr>(internal_node->children_[i]) &&
-                std::get<LeafNodePtr>(internal_node->children_[i]) == node) {
-                return internal_node;
+            if (is_equal) {
+                return current;
+            } else if (std::holds_alternative<InternalNodePtr>(current->children_[i])) {
+                parent = current;
+                current = std::get<InternalNodePtr>(current->children_[i]);
+                break;
             }
         }
-        current = internal_node->children_[0];
+        if (parent == current) break;
     }
-    return nullptr;
+    return SharedPtr<InternalNode<Key, RecordId, Order>>{};
 }
 
 
@@ -722,17 +740,26 @@ void BPlusTree<Key, RecordId, Order, compare>::bulk_load(InputIt first, InputIt 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 typename BPlusTree<Key, RecordId, Order, compare>::Iterator
 BPlusTree<Key, RecordId, Order, compare>::begin() {
-    auto leaf = std::get<LeafNodePtr>(root_);
-    while (leaf && leaf->children_[0]) {
-        leaf = std::get<LeafNodePtr>(leaf->children_[0]);
+    if (std::holds_alternative<std::monostate>(root_)) {
+        return end();
     }
-    return Iterator(leaf, 0);
+    
+    auto current = root_;
+    // Traverse to the leftmost leaf
+    while (!std::holds_alternative<LeafNodePtr>(current)) {
+        auto internal = std::get<InternalNodePtr>(current);
+        if (internal->children_.empty()) {
+            return end();
+        }
+        current = internal->children_[0];
+    }
+    return Iterator(std::get<LeafNodePtr>(current), 0);
 }
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 typename BPlusTree<Key, RecordId, Order, compare>::Iterator
 BPlusTree<Key, RecordId, Order, compare>::end() {
-    return Iterator(nullptr, 0);
+    return Iterator(LeafNodePtr{}, 0);
 }
 
 template <typename Key, typename RecordId, size_t Order, typename compare>

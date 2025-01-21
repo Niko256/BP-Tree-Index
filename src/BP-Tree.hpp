@@ -140,7 +140,7 @@ struct LeafNode : public BaseNode<LeafNode<Key, RecordId, Order>> {
 
     mutable std::shared_mutex mutex_; 
     
-    DynamicArray<Key> keys_;.
+    DynamicArray<Key> keys_;
     
     DynamicArray<RecordId> values_;
     
@@ -236,7 +236,7 @@ class BPlusTree {
      * 
      * @param node The leaf node from which a key was removed.
      */
-    void balance_after_remove(LeafNodePtr node);
+    void balance_after_remove(VariantNode<Key, RecordId, Order> node);
 
     /**
      * @brief Finds the parent of a given leaf node.
@@ -245,7 +245,7 @@ class BPlusTree {
      * 
      * @return a pointer to the parent node.
      */
-    SharedPtr<InternalNode<Key, RecordId, Order>> find_parent(LeafNodePtr node);
+    SharedPtr<InternalNode<Key, RecordId, Order>> find_parent(VariantNode<Key, RecordId, Order> node);
 
     /**
      * @brief Creates a deep copy of an internal node and its children.
@@ -312,7 +312,8 @@ class BPlusTree {
      * @brief Inserts a key-value pair into the tree.
      * 
      */
-    void insert(const Key& key, RecordId& id);
+    template <typename T>
+    void insert(const Key& key, T&& id);
 
     /**
      * @brief Removes a key-value pair from the tree.
