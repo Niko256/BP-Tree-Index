@@ -14,11 +14,18 @@ struct CompositeKey {
     std::tuple<Keys...> parameters_; ///< Tuple storing the individual keys.
 
     CompositeKey(Keys... keys) : parameters_(std::make_tuple(keys...)) {}
+    CompositeKey() : parameters_() {}
+    CompositeKey(const CompositeKey& other) = default;
+    CompositeKey(CompositeKey&& other) noexcept = default;
+
+    CompositeKey& operator=(const CompositeKey& other) = default;
+    CompositeKey& operator=(CompositeKey&& other) noexcept = default;
 
     template <size_t I>
     const auto& get() const;
 
-    bool operator<(const CompositeKey& other) const; 
+    bool operator<(const CompositeKey& other) const;
+    bool operator>(const CompositeKey& other) const;
     bool operator==(const CompositeKey& other) const;
 };
 
@@ -33,9 +40,6 @@ struct LeafNode;
 
 // CRTP
 template <typename Derived> struct BaseNode {
-    /**
-     * @brief Checks if the node is a leaf node.
-     */
     bool is_leaf() const {
         return static_cast<const Derived*>(this)->is_leaf_impl();
     }
