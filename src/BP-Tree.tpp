@@ -600,14 +600,13 @@ void BPlusTree<Key, RecordId, Order, compare>::balance_after_remove(VariantNode<
 template <typename Key, typename RecordId, size_t Order, typename compare>
 SharedPtr<InternalNode<Key, RecordId, Order>>
 BPlusTree<Key, RecordId, Order, compare>::find_parent(VariantNode<Key, RecordId, Order> node) {
-
     if (std::holds_alternative<LeafNodePtr>(root_)) {
         return SharedPtr<InternalNode<Key, RecordId, Order>>{};
     }
-    
+
     auto current = std::get<InternalNodePtr>(root_);
     SharedPtr<InternalNode<Key, RecordId, Order>> parent = SharedPtr<InternalNode<Key, RecordId, Order>>{};
-    
+
     while (current) {
         for (size_t i = 0; i < current->children_.size(); i++) {
             bool is_equal = std::visit([&node](auto&& arg) -> bool {
@@ -615,7 +614,7 @@ BPlusTree<Key, RecordId, Order, compare>::find_parent(VariantNode<Key, RecordId,
                 if constexpr (std::is_same_v<T, std::monostate>) {
                     return false;
                 } else {
-                    return arg == node;
+                    return arg == std::get<T>(node);
                 }
             }, current->children_[i]);
 
