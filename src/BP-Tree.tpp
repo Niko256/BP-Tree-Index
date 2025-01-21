@@ -440,6 +440,7 @@ void BPlusTree<Key, RecordId, Order, compare>::balance_after_remove(VariantNode<
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::redistribute_nodes(
+
     VariantNode<Key, RecordId, Order>& lhs, 
     VariantNode<Key, RecordId, Order>& rhs) {
     
@@ -467,6 +468,7 @@ void BPlusTree<Key, RecordId, Order, compare>::redistribute_nodes(
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::merge_nodes(
+    
     VariantNode<Key, RecordId, Order>& left, 
     VariantNode<Key, RecordId, Order>& right) {
     
@@ -661,6 +663,208 @@ BPlusTree<Key, RecordId, Order, compare>::end() {
     return Iterator();
 }
 
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+size_t BPlusTree<Key, RecordId, Order, compare>::height() const {
+    std::shared_lock read_lock(root_mutex_);
+    
+    if (std::holds_alternative<std::monostate>(root_)) {
+        return 0;  
+    }
+    
+    size_t h = 1; 
+    
+    if (std::holds_alternative<InternalNodePtr>(root_)) {
+        auto current = std::get<InternalNodePtr>(root_);
+        
+        while (current) {
+            h++;
+            if (current->children_.empty()) {
+                break;
+            }
+            
+            const auto& first_child = current->children_[0];
+            if (std::holds_alternative<LeafNodePtr>(first_child)) {
+                break;
+            }
+            
+            current = std::get<InternalNodePtr>(first_child);
+        }
+    }
+    
+    return h;
+}
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+double BPlusTree<Key, RecordId, Order, compare>::fill_factor() const {
+    std::shared_lock read_lock(root_mutex_);
+    
+    if (std::holds_alternative<std::monostate>(root_)) {
+        return 0.0;  
+    }
+    
+    size_t total_capacity = 0;
+    size_t total_used = 0;
+    
+    std::function<void(const VariantNode<Key, RecordId, Order>&)> calculate_fill =
+        [&](const VariantNode<Key, RecordId, Order>& node) {
+            if (std::holds_alternative<LeafNodePtr>(node)) {
+                auto leaf = std::get<LeafNodePtr>(node);
+                total_capacity += Order - 1;  
+                total_used += leaf->keys_.size();
+            }
+            else if (std::holds_alternative<InternalNodePtr>(node)) {
+                auto internal = std::get<InternalNodePtr>(node);
+                total_capacity += Order - 1; 
+                total_used += internal->keys_.size();
+                
+                for (const auto& child : internal->children_) {
+                    calculate_fill(child);
+                }
+            }
+        };
+    
+    calculate_fill(root_);
+    
+    return total_capacity > 0 ? static_cast<double>(total_used) / total_capacity : 0.0;
+}
+
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+BPlusTree<Key, RecordId, Order, compare>::BPlusTree(const BPlusTree& other) 
+    : size_(other.size_), comparator_(other.comparator_) {
+
+    std::shared_lock read_lock(other.root_mutex_);
+    
+    if (std::holds_alternative<std::monostate>(other.root_)) {
+        root_ = std::monostate{};
+        return;
+    }
+
+    if (std::holds_alternative<LeafNodePtr>(other.root_)) {
+        auto other_leaf = std::get<LeafNodePtr>(other.root_);
+        auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+        
+        new_leaf->keys_ = other_leaf->keys_;
+        new_leaf->values_ = other_leaf->values_;
+        new_leaf->next_ = nullptr;  
+        
+        root_ = new_leaf;
+    } else {
+        root_ = deep_copy_node(std::get<InternalNodePtr>(other.root_));
+    }
+
+    rebuild_leaf_links();
+}
+
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+BPlusTree<Key, RecordId, Order, compare>::BPlusTree(BPlusTree&& other) noexcept
+    : root_(std::monostate{}), size_(0), comparator_() {
+    std::unique_lock write_lock(other.root_mutex_);
+    
+    root_ = std::move(other.root_);
+    size_ = other.size_;
+    comparator_ = std::move(other.comparator_);
+    
+    other.root_ = std::monostate{};
+    other.size_ = 0;
+}
+
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+BPlusTree<Key, RecordId, Order, compare>& 
+BPlusTree<Key, RecordId, Order, compare>::operator=(const BPlusTree& other) {
+    if (this != &other) {
+        BPlusTree temp(other);
+        *this = std::move(temp);
+    }
+    return *this;
+}
+
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+BPlusTree<Key, RecordId, Order, compare>& 
+BPlusTree<Key, RecordId, Order, compare>::operator=(BPlusTree&& other) noexcept {
+
+    if (this != &other) {
+        std::unique_lock write_lock1(root_mutex_, std::defer_lock);
+        std::unique_lock write_lock2(other.root_mutex_, std::defer_lock);
+        std::lock(write_lock1, write_lock2);
+        
+        clear();
+        root_ = std::move(other.root_);
+        size_ = other.size_;
+        comparator_ = std::move(other.comparator_);
+        
+        other.root_ = std::monostate{};
+        other.size_ = 0;
+    }
+    return *this;
+}
+
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+typename BPlusTree<Key, RecordId, Order, compare>::InternalNodePtr
+BPlusTree<Key, RecordId, Order, compare>::deep_copy_node(const InternalNodePtr& node) {
+    if (!node) return nullptr;
+
+    auto new_node = std::make_shared<InternalNode<Key, RecordId, Order>>();
+    new_node->keys_ = node->keys_;
+
+    for (const auto& child : node->children_) {
+        if (std::holds_alternative<InternalNodePtr>(child)) {
+            new_node->children_.push_back(deep_copy_node(std::get<InternalNodePtr>(child)));
+
+        } else if (std::holds_alternative<LeafNodePtr>(child)) {
+        
+            auto leaf = std::get<LeafNodePtr>(child);
+            auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+            
+            new_leaf->keys_ = leaf->keys_;
+            new_leaf->values_ = leaf->values_;
+            new_leaf->next_ = nullptr;  
+            
+            new_node->children_.push_back(new_leaf);
+        }
+    }
+
+    return new_node;
+}
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+void BPlusTree<Key, RecordId, Order, compare>::rebuild_leaf_links() {
+    if (std::holds_alternative<std::monostate>(root_)) return;
+
+    std::vector<LeafNodePtr> leaves;
+    collect_leaves(root_, leaves);
+
+    for (size_t i = 0; i < leaves.size() - 1; ++i) {
+        leaves[i]->next_ = leaves[i + 1];
+    }
+}
+
+template <typename Key, typename RecordId, size_t Order, typename compare>
+void BPlusTree<Key, RecordId, Order, compare>::collect_leaves(
+    const VariantNode<Key, RecordId, Order>& node,
+    std::vector<LeafNodePtr>& leaves) {
+    
+    if (std::holds_alternative<LeafNodePtr>(node)) {
+        leaves.push_back(std::get<LeafNodePtr>(node));
+
+    } else if (std::holds_alternative<InternalNodePtr>(node)) {
+    
+        auto internal = std::get<InternalNodePtr>(node);
+        for (const auto& child : internal->children_) {
+            collect_leaves(child, leaves);
+        }
+    }
+}
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::clear() {

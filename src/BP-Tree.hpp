@@ -126,6 +126,11 @@ class BPlusTree {
     LeafNodePtr find_leaf(const Key& key);
     std::shared_ptr<InternalNode<Key, RecordId, Order>> find_parent(const VariantNode<Key, RecordId, Order>& target);
 
+    InternalNodePtr deep_copy_node(const InternalNodePtr& node);
+    void rebuild_leaf_links();
+    void collect_leaves(
+            const VariantNode<Key, RecordId, Order>& node,
+            std::vector<LeafNodePtr>& leaves);
 
   public:
     class Iterator {

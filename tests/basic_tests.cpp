@@ -1,4 +1,5 @@
 #include "gtest/gtest.h"
+#include <cmath>
 #include <memory>
 #include "../src/BP-Tree.hpp"
 #include "string"
@@ -9,7 +10,8 @@
 class BPlusTreeTest : public ::testing::Test {
   protected:
 
-    std::unique_ptr<BPlusTree<int, std::string>> tree_;
+    static const size_t TEST_ORDER = 128;
+    std::unique_ptr<BPlusTree<int, std::string, TEST_ORDER>> tree_;
 
     void SetUp() override {
         tree_ = std::make_unique<BPlusTree<int, std::string>>();
@@ -364,3 +366,48 @@ TEST_F(BPlusTreeTest, IteratorTest) {
     EXPECT_EQ(values[2], "value3");
 }
 
+
+TEST_F(BPlusTreeTest, Height) {
+    EXPECT_EQ(tree_->height(), 0);
+    
+    tree_->insert(1, "one");
+    EXPECT_EQ(tree_->height(), 1);
+    
+    for (int i = 2; i <= 200; ++i) {
+        tree_->insert(i, std::to_string(i));
+    }
+    
+    EXPECT_GT(tree_->height(), 1);
+    
+    size_t max_theoretical_height = 
+        static_cast<size_t>(std::ceil(std::log(200) / std::log(TEST_ORDER / 2))) + 1;
+    EXPECT_LE(tree_->height(), max_theoretical_height);
+}
+
+
+TEST_F(BPlusTreeTest, FillFactor) {
+    EXPECT_DOUBLE_EQ(tree_->fill_factor(), 0.0);
+    
+    tree_->insert(1, "one");
+    EXPECT_GT(tree_->fill_factor(), 0.0);
+    EXPECT_LT(tree_->fill_factor(), 1.0);
+    
+    size_t optimal_elements = (2 * TEST_ORDER) / 3;
+    for (size_t i = 2; i <= optimal_elements; ++i) {
+        tree_->insert(i, std::to_string(i));
+    }
+    
+    EXPECT_NEAR(tree_->fill_factor(), 0.67, 0.1);
+    
+    for (size_t i = optimal_elements + 1; i <= TEST_ORDER - 1; ++i) {
+        tree_->insert(i, std::to_string(i));
+    }
+    
+    EXPECT_NEAR(tree_->fill_factor(), 1.0, 0.1);
+    
+    for (size_t i = 1; i <= (TEST_ORDER - 1) / 2; ++i) {
+        tree_->remove(i);
+    }
+    
+    EXPECT_LT(tree_->fill_factor(), 0.7);
+}
