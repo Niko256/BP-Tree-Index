@@ -6,7 +6,6 @@
 #include <thread>
 
 
-
 class BPlusTreeTest : public ::testing::Test {
   protected:
 

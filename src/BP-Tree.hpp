@@ -48,8 +48,8 @@ template <typename Derived> struct BaseNode {
 
 template <typename Key, typename RecordId, size_t Order>
 using VariantNode = std::variant<
-    std::shared_ptr<InternalNode<Key, RecordId, Order>>, 
-    std::shared_ptr<LeafNode<Key, RecordId, Order>>, 
+    SharedPtr<InternalNode<Key, RecordId, Order>>, 
+    SharedPtr<LeafNode<Key, RecordId, Order>>, 
     std::monostate>;
 
 
@@ -57,11 +57,11 @@ using VariantNode = std::variant<
 template <typename Key, typename RecordId, size_t Order>
 struct InternalNode : public BaseNode<InternalNode<Key, RecordId, Order>> {
 
-    mutable std::shared_mutex mutex_; ///< Mutex for thread-safe access.
+    mutable std::shared_mutex mutex_; 
     
-    std::vector<Key> keys_; ///< Array of keys stored in the node.
+    DynamicArray<Key> keys_; 
     
-    std::vector<VariantNode<Key, RecordId, Order>> children_; ///< Array of child nodes.
+    DynamicArray<VariantNode<Key, RecordId, Order>> children_; 
 
     bool is_leaf_impl() const noexcept { return false; }
 
@@ -82,11 +82,11 @@ struct LeafNode : public BaseNode<LeafNode<Key, RecordId, Order>> {
 
     mutable std::shared_mutex mutex_; 
     
-    std::vector<Key> keys_;
+    DynamicArray<Key> keys_;
     
-    std::vector<RecordId> values_;
+    DynamicArray<RecordId> values_;
     
-    std::shared_ptr<LeafNode> next_;
+    SharedPtr<LeafNode> next_;
 
 
     bool is_leaf_impl() const noexcept { return true; }
@@ -101,19 +101,32 @@ struct LeafNode : public BaseNode<LeafNode<Key, RecordId, Order>> {
 
 
 
+/**
+ * @brief A B+ Tree implementation for efficient storage and retrieval of key-value pairs.
+ * 
+ * The B+ Tree is a self-balancing tree that supports efficient insertion, deletion,
+ * and search operations. It is particularly useful for databases and file systems.
+ * 
+ * @tparam Key The type of the keys stored in the tree.
+ * @tparam RecordId The type of the record IDs associated with the keys.
+ * @tparam Order The maximum number of children per node (default is 128).
+ * @tparam compare The comparison function for keys (default is std::less<Key>).
+ */
+
+
 template <typename Key, typename RecordId, size_t Order = 128, typename compare = std::less<Key>>
 class BPlusTree {
 
   private:
 
-    using InternalNodePtr = std::shared_ptr<InternalNode<Key, RecordId, Order>>;
-    using LeafNodePtr = std::shared_ptr<LeafNode<Key, RecordId, Order>>;
+    using InternalNodePtr = SharedPtr<InternalNode<Key, RecordId, Order>>;
+    using LeafNodePtr = SharedPtr<LeafNode<Key, RecordId, Order>>;
 
-    mutable std::shared_mutex root_mutex_; ///< Mutex for thread-safe access to the root.
+    mutable std::shared_mutex root_mutex_; 
     
-    VariantNode<Key, RecordId, Order> root_; ///< The root node of the tree.
+    VariantNode<Key, RecordId, Order> root_;
     
-    size_t size_ = 0; ///< The number of key-value pairs in the tree.
+    size_t size_ = 0;
     
     compare comparator_; 
 
@@ -128,15 +141,37 @@ class BPlusTree {
     void balance_after_remove(VariantNode<Key, RecordId, Order> node);
 
     LeafNodePtr find_leaf(const Key& key);
-    std::shared_ptr<InternalNode<Key, RecordId, Order>> find_parent(const VariantNode<Key, RecordId, Order>& target);
+    SharedPtr<InternalNode<Key, RecordId, Order>> find_parent(const VariantNode<Key, RecordId, Order>& target);
 
     InternalNodePtr deep_copy_node(const InternalNodePtr& node);
     void rebuild_leaf_links();
     void collect_leaves(
             const VariantNode<Key, RecordId, Order>& node,
-            std::vector<LeafNodePtr>& leaves);
+            DynamicArray<LeafNodePtr>& leaves);
 
   public:
+
+    BPlusTree() : root_(std::monostate{}), size_(0), comparator_() {}
+    BPlusTree(const BPlusTree& other);
+    BPlusTree(BPlusTree&& other) noexcept;
+
+    BPlusTree& operator=(const BPlusTree& other);
+    BPlusTree& operator=(BPlusTree&& other) noexcept;
+
+    ~BPlusTree() = default;
+
+    template <typename T>
+    void insert(const Key& key, T&& id);
+    void remove(const Key& key);
+
+
+    DynamicArray<RecordId> find(const Key& key);
+    DynamicArray<RecordId> range_search(const Key& from, const Key& to);
+    DynamicArray<RecordId> prefix_search(const std::string& prefix);
+    
+    template <typename Predicate>
+    DynamicArray<RecordId> find_if(Predicate pred);
+
     class Iterator {
       private:
 
@@ -167,29 +202,56 @@ class BPlusTree {
         bool operator!=(const ConstIterator& other) const;
     };
 
-    BPlusTree() : root_(std::monostate{}), size_(0), comparator_() {}
-    BPlusTree(const BPlusTree& other);
-    BPlusTree(BPlusTree&& other) noexcept;
+    template <typename Predicate> class FilterIterator {
+      private:
+        
+        Iterator current_;
+        Iterator end_;
+        Predicate pred_;
 
-    BPlusTree& operator=(const BPlusTree& other);
-    BPlusTree& operator=(BPlusTree&& other) noexcept;
+        void find_next_valid();
 
-    ~BPlusTree() = default;
-
-    template <typename T>
-    void insert(const Key& key, T&& id);
-    void remove(const Key& key);
-
-
-    std::vector<RecordId> find(const Key& key);
-    std::vector<RecordId> range_search(const Key& from, const Key& to);
-    std::vector<RecordId> prefix_search(const std::string& prefix);
+      public:
     
-    template <typename Predicate>
-    std::vector<RecordId> find_if(Predicate pred);
+        FilterIterator(Iterator begin, Iterator end, Predicate pred);
+        
+        FilterIterator& operator++();
+        auto operator*();
+        bool operator==(const FilterIterator& other) const;
+        bool operator!=(const FilterIterator& other) const;
+    };
+
+    class TreeRange {
+      private:
+        BPlusTree& tree_;
+
+      public:
+        explicit TreeRange(BPlusTree& tree) : tree_(tree) {}
+
+        Iterator begin();
+        Iterator end();
+    };
+
+    template <typename Predicate> class FilterRange {
+      private:
+        BPlusTree& tree_;
+        Predicate pred_;
+
+      public:
+        FilterRange(BPlusTree& tree, Predicate pred);
+        
+        FilterIterator<Predicate> begin();
+        FilterIterator<Predicate> end();
+    };
 
     Iterator begin();
     Iterator end();
+
+    template <typename Predicate>
+    FilterRange<Predicate> filter(Predicate pred);
+    
+    operator TreeRange();
+    TreeRange range();
 
     bool empty() const;
     size_t height() const;
@@ -200,3 +262,4 @@ class BPlusTree {
 
 #include "Composite-Key.tpp"
 #include "BP-Tree.tpp"
+#include "Iterators.tpp"

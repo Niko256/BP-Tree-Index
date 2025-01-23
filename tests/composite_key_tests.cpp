@@ -60,12 +60,11 @@ TEST_F(CompositeKeyTest, CompositeKeyOperations) {
 
 
 TEST_F(CompositeKeyTest, Comparison) {
-    std::vector<CompositeKey<int, std::string>> keys = {
-        CompositeKey<int, std::string>(2, "b"),
-        CompositeKey<int, std::string>(1, "c"),
-        CompositeKey<int, std::string>(1, "a"),
-        CompositeKey<int, std::string>(2, "a")
-    };
+    DynamicArray<CompositeKey<int, std::string>> keys;
+    keys.push_back(CompositeKey<int, std::string>(2, "b"));
+    keys.push_back(CompositeKey<int, std::string>(1, "c")); 
+    keys.push_back(CompositeKey<int, std::string>(1, "a"));
+    keys.push_back(CompositeKey<int, std::string>(2, "a"));
 
     std::sort(keys.begin(), keys.end());
 
@@ -139,11 +138,16 @@ TEST_F(CompositeKeyTest, RangeQueries) {
     using KeyType = CompositeKey<int, std::string>;
     BPlusTree<KeyType, std::string> tree;
 
-    std::vector<KeyType> keys = {
-        KeyType(1, "a"), KeyType(1, "b"), KeyType(1, "c"),
-        KeyType(2, "a"), KeyType(2, "b"), KeyType(2, "c"),
-        KeyType(3, "a"), KeyType(3, "b"), KeyType(3, "c")
-    };
+    DynamicArray<KeyType> keys;
+    keys.push_back(KeyType(1, "a"));
+    keys.push_back(KeyType(1, "b"));
+    keys.push_back(KeyType(1, "c")); 
+    keys.push_back(KeyType(2, "a"));
+    keys.push_back(KeyType(2, "b"));
+    keys.push_back(KeyType(2, "c"));
+    keys.push_back(KeyType(3, "a"));
+    keys.push_back(KeyType(3, "b"));
+    keys.push_back(KeyType(3, "c"));
 
     for (size_t i = 0; i < keys.size(); ++i) {
         tree.insert(keys[i], "value" + std::to_string(i));
@@ -205,12 +209,11 @@ TEST_F(CompositeKeyTest, IteratorOperations) {
     using KeyType = CompositeKey<int, std::string>;
     BPlusTree<KeyType, std::string> tree;
 
-    std::vector<std::pair<KeyType, std::string>> data = {
-        {KeyType(1, "a"), "value1"},
-        {KeyType(1, "b"), "value2"},
-        {KeyType(2, "a"), "value3"},
-        {KeyType(2, "b"), "value4"}
-    };
+    DynamicArray<std::pair<KeyType, std::string>> data;
+    data.push_back({KeyType(1, "a"), "value1"});
+    data.push_back({KeyType(1, "b"), "value2"});
+    data.push_back({KeyType(2, "a"), "value3"});
+    data.push_back({KeyType(2, "b"), "value4"});
 
     for (const auto& [key, value] : data) {
         tree.insert(key, value);
@@ -221,4 +224,109 @@ TEST_F(CompositeKeyTest, IteratorOperations) {
         count++;
     }
     EXPECT_EQ(count, data.size());
+}
+
+
+TEST_F(CompositeKeyTest, FilterIteratorBasic) {
+    BPlusTree<int, std::string> tree;
+
+    tree.insert(1, "one");
+    tree.insert(2, "two");
+    tree.insert(3, "three");
+    tree.insert(4, "four");
+    tree.insert(5, "five");
+
+    auto even_filter = [](const auto& pair) { return pair.first_ % 2 == 0; };
+    auto filtered = tree.filter(even_filter);
+
+    DynamicArray<int> even_numbers;
+    for (const auto& pair : filtered) {
+        even_numbers.push_back(pair.first_);
+    }
+
+    ASSERT_EQ(even_numbers.size(), 2);
+    EXPECT_EQ(even_numbers[0], 2);
+    EXPECT_EQ(even_numbers[1], 4);
+}
+
+TEST_F(CompositeKeyTest, FilterIteratorEmpty) {
+    BPlusTree<int, std::string> tree;
+
+    auto always_false = [](const auto&) { return false; };
+    auto filtered = tree.filter(always_false);
+
+    int count = 0;
+    for (const auto& _ : filtered) {
+        count++;
+    }
+
+    EXPECT_EQ(count, 0);
+}
+
+TEST_F(CompositeKeyTest, FilterIteratorAllMatch) {
+    BPlusTree<int, std::string> tree;
+
+    tree.insert(1, "one");
+    tree.insert(2, "two");
+    tree.insert(3, "three");
+
+    auto always_true = [](const auto&) { return true; };
+    auto filtered = tree.filter(always_true);
+
+    int count = 0;
+    for (const auto& _ : filtered) {
+        count++;
+    }
+
+    EXPECT_EQ(count, 3);
+}
+
+TEST_F(CompositeKeyTest, RangeBasedFor) {
+    BPlusTree<int, std::string> tree;
+    
+    DynamicArray<std::pair<int, std::string>> data;
+    data.push_back({1, "one"});
+    data.push_back({2, "two"});
+    data.push_back({3, "three"});
+
+    for (const auto& [key, value] : data) {
+        tree.insert(key, value); 
+    }
+
+    DynamicArray<int> keys;
+    for (const auto& pair : tree) {
+        keys.push_back(pair.first_);
+    }
+
+    ASSERT_EQ(keys.size(), data.size());
+    for (size_t i = 0; i < keys.size(); ++i) {
+        EXPECT_EQ(keys[i], data[i].first);
+    }
+}
+
+TEST_F(CompositeKeyTest, FilterIteratorComplex) {
+    using KeyType = CompositeKey<int, std::string>;
+    BPlusTree<KeyType, std::string> tree;
+
+    tree.insert(KeyType(1, "a"), "value1");
+    tree.insert(KeyType(2, "b"), "value2");
+    tree.insert(KeyType(1, "c"), "value3");
+    tree.insert(KeyType(2, "d"), "value4");
+
+    auto filter_first_one = [](const auto& pair) { 
+        return pair.first_.template get<0>() == 1; 
+    };
+
+    auto filtered = tree.filter(filter_first_one);
+
+    DynamicArray<std::string> second_components;
+    for (const auto& pair : filtered) {
+        second_components.push_back(pair.first_.get<1>());
+    }
+
+    ASSERT_EQ(second_components.size(), 2);
+    EXPECT_TRUE(std::find(second_components.begin(), 
+                         second_components.end(), "a") != second_components.end());
+    EXPECT_TRUE(std::find(second_components.begin(), 
+                         second_components.end(), "c") != second_components.end());
 }

@@ -7,133 +7,6 @@
 #include <stdexcept>
 #include <variant>
 
-// ---------------- INTERNAL NODE METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order>
-bool InternalNode<Key, RecordId, Order>::is_full() const {
-    return keys_.size() >= Order - 1;
-}
-
-template <typename Key, typename RecordId, size_t Order>
-size_t InternalNode<Key, RecordId, Order>::size() const {
-    return keys_.size();
-}
-
-template <typename Key, typename RecordId, size_t Order>
-void InternalNode<Key, RecordId, Order>::insert_key_at(size_t index, const Key& key) {
-    keys_.insert(keys_.begin() + index, key);
-}
-
-template <typename Key, typename RecordId, size_t Order>
-void InternalNode<Key, RecordId, Order>::insert_key_at(size_t index, Key&& key) {
-    keys_.insert(keys_.begin() + index, std::move(key));
-}
-
-// ---------------- LEAF NODE METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order>
-size_t LeafNode<Key, RecordId, Order>::size() const {
-    return keys_.size();
-}
-
-template <typename Key, typename RecordId, size_t Order>
-bool LeafNode<Key, RecordId, Order>::is_full() const {
-    return keys_.size() >= Order - 1;
-}
-
-template <typename Key, typename RecordId, size_t Order>
-RecordId LeafNode<Key, RecordId, Order>::get_record(size_t index) const {
-    if (index >= values_.size()) {
-        throw std::out_of_range("Index out of range in get_record method");
-    }
-    return values_[index];
-}
-
-// ---------------- ITERATOR METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-BPlusTree<Key, RecordId, Order, compare>::Iterator::Iterator(LeafNodePtr node, size_t index)
-    : current_node_(node), current_index_(index) {}
-
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-typename BPlusTree<Key, RecordId, Order, compare>::Iterator& 
-BPlusTree<Key, RecordId, Order, compare>::Iterator::operator++() {
-    if (!current_node_) {
-        return *this;
-    }
-
-    current_index_++;
-    if (current_index_ >= current_node_->keys_.size()) {
-        current_node_ = current_node_->next_;
-        current_index_ = 0;
-    }
-
-    return *this;
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-Pair<const Key&, RecordId&> 
-BPlusTree<Key, RecordId, Order, compare>::Iterator::operator*() const {
-    if (!current_node_ || current_index_ >= current_node_->keys_.size()) {
-        throw std::out_of_range("Iterator is out of range");
-    }
-    return {current_node_->keys_[current_index_], 
-            current_node_->values_[current_index_]};
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-bool BPlusTree<Key, RecordId, Order, compare>::Iterator::operator==(const Iterator& other) const {
-    return current_node_ == other.current_node_ && current_index_ == other.current_index_;
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-bool BPlusTree<Key, RecordId, Order, compare>::Iterator::operator!=(const Iterator& other) const {
-    return !(*this == other);
-}
-
-// ---------------- CONST ITERATOR METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-typename BPlusTree<Key, RecordId, Order, compare>::ConstIterator& 
-BPlusTree<Key, RecordId, Order, compare>::ConstIterator::operator++() {
-    if (!current_node_) {
-        return *this;
-    }
-
-    current_index_++;
-    
-    if (current_index_ >= current_node_->size()) {
-        current_node_ = current_node_->next_;
-        current_index_ = 0;
-    }
-    
-    return *this;
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-const Pair<const Key&, const RecordId&> 
-BPlusTree<Key, RecordId, Order, compare>::ConstIterator::operator*() const {
-    if (!current_node_ || current_index_ >= current_node_->size()) {
-        throw std::runtime_error("Invalid iterator dereference");
-    }
-    
-    return Pair<const Key&, const RecordId&>(
-        current_node_->keys_[current_index_],
-        current_node_->get_record(current_index_)
-    );
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-bool BPlusTree<Key, RecordId, Order, compare>::ConstIterator::operator==(const ConstIterator& other) const {
-    return current_node_ == other.current_node_ && current_index_ == other.current_index_;
-}
-
-template <typename Key, typename RecordId, size_t Order, typename compare>
-bool BPlusTree<Key, RecordId, Order, compare>::ConstIterator::operator!=(const ConstIterator& other) const {
-    return !(*this == other);
-}
-
 
 // ---------------- B+TREE IMPLEMENTATION ----------------
 
@@ -222,7 +95,7 @@ void BPlusTree<Key, RecordId, Order, compare>::insert(const Key& key, T&& id) {
     // Handle insertion into empty tree
     if (std::holds_alternative<std::monostate>(root_)) {
         // Create new leaf node as root
-        auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+        auto new_leaf = make_shared<LeafNode<Key, RecordId, Order>>();
 
         new_leaf->keys_.push_back(key);
         new_leaf->values_.push_back(std::forward<T>(id));  // Perfect forward the record ID
@@ -284,7 +157,7 @@ template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::split_leaf(LeafNodePtr leaf) {
 
     // Create a new leaf node to hold half of the elements
-    auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+    auto new_leaf = make_shared<LeafNode<Key, RecordId, Order>>();
     
     size_t mid = leaf->keys_.size() / 2;
     
@@ -307,7 +180,7 @@ void BPlusTree<Key, RecordId, Order, compare>::split_leaf(LeafNodePtr leaf) {
         std::get<LeafNodePtr>(root_) == leaf) {
      
         // Create new internal node as the root
-        auto new_root = std::make_shared<InternalNode<Key, RecordId, Order>>();
+        auto new_root = make_shared<InternalNode<Key, RecordId, Order>>();
         // Add the first key of the new leaf as the splitting key
         new_root->keys_.push_back(new_leaf->keys_.front());
         
@@ -361,7 +234,7 @@ template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::split_internal(InternalNodePtr node) {
 
     // Create a new internal node to hold right half of elements
-    auto new_node = std::make_shared<InternalNode<Key, RecordId, Order>>();
+    auto new_node = make_shared<InternalNode<Key, RecordId, Order>>();
     
     // Find the middle point and the key that will be promoted
     size_t mid = node->keys_.size() / 2;
@@ -380,7 +253,7 @@ void BPlusTree<Key, RecordId, Order, compare>::split_internal(InternalNodePtr no
     if (std::holds_alternative<InternalNodePtr>(root_) && 
         std::get<InternalNodePtr>(root_) == node) {
 
-        auto new_root = std::make_shared<InternalNode<Key, RecordId, Order>>();
+        auto new_root = make_shared<InternalNode<Key, RecordId, Order>>();
         
         // Add the promoted middle key
         new_root->keys_.push_back(mid_key);
@@ -696,20 +569,20 @@ bool BPlusTree<Key, RecordId, Order, compare>::empty() const {
  */
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
-std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::find(const Key& key) {
+DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::find(const Key& key) {
 
     // Acquire shared lock for reading
     std::shared_lock read_lock(root_mutex_);
 
     // Return empty vector if tree is empty
     if (std::holds_alternative<std::monostate>(root_)) {
-        return {};
+        return DynamicArray<RecordId>(); 
     }
 
     // Find the leaf node containing the key
     LeafNodePtr leaf = find_leaf(key);
     if (!leaf) {
-        return {};
+        return DynamicArray<RecordId>();
     }
 
     // Acquire shared lock for leaf node
@@ -718,12 +591,16 @@ std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::find(const Key& 
     // Search for the key in the leaf node
     auto it = std::lower_bound(leaf->keys_.begin(), leaf->keys_.end(), key, comparator_);
     if (it != leaf->keys_.end() && !comparator_(key, *it) && !comparator_(*it, key)) {
+        
         size_t index = it - leaf->keys_.begin();
-        return {leaf->values_[index]};
+        DynamicArray<RecordId> result;
+        result.push_back(leaf->values_[index]);
+
+        return result;
     }
 
     // Return empty vector if key not found
-    return {};
+    return DynamicArray<RecordId>();
 }
 
 
@@ -740,12 +617,12 @@ std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::find(const Key& 
  */
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
-std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::range_search(
+DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::range_search(
     const Key& from, const Key& to) {
 
     // Acquire shared lock for reading
     std::shared_lock read_lock(root_mutex_);
-    std::vector<RecordId> result;
+    DynamicArray<RecordId> result;
 
     // Return empty result if tree is empty
     if (std::holds_alternative<std::monostate>(root_)) {
@@ -801,10 +678,10 @@ std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::range_search(
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
 template<typename Predicate>
-std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::find_if(Predicate pred) {
+DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::find_if(Predicate pred) {
     // Acquire shared lock for reading
     std::shared_lock read_lock(root_mutex_);
-    std::vector<RecordId> result;
+    DynamicArray<RecordId> result;
     
     // Return empty result if tree is empty
     if (std::holds_alternative<std::monostate>(root_)) {
@@ -848,11 +725,11 @@ std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::find_if(Predicat
  */
 
 template <typename Key, typename RecordId, size_t Order, typename compare>
-std::vector<RecordId> BPlusTree<Key, RecordId, Order, compare>::prefix_search(const std::string& prefix) {
+DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::prefix_search(const std::string& prefix) {
 
     // Acquire shared lock for reading
     std::shared_lock read_lock(root_mutex_);
-    std::vector<RecordId> result;
+    DynamicArray<RecordId> result;
     
     // Return empty result if tree is empty
     if (std::holds_alternative<std::monostate>(root_)) {
@@ -1058,7 +935,7 @@ BPlusTree<Key, RecordId, Order, compare>::BPlusTree(const BPlusTree& other)
     // If the other tree's root is a leaf node, create a new leaf node and copy its contents.
     if (std::holds_alternative<LeafNodePtr>(other.root_)) {
         auto other_leaf = std::get<LeafNodePtr>(other.root_);
-        auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+        auto new_leaf = make_shared<LeafNode<Key, RecordId, Order>>();
         
         // Copy the keys and values from the other leaf node.
         new_leaf->keys_ = other_leaf->keys_;
@@ -1155,7 +1032,7 @@ BPlusTree<Key, RecordId, Order, compare>::deep_copy_node(const InternalNodePtr& 
     if (!node) return nullptr;
 
     // Create a new internal node.
-    auto new_node = std::make_shared<InternalNode<Key, RecordId, Order>>();
+    auto new_node = make_shared<InternalNode<Key, RecordId, Order>>();
     
     // Copy the keys from the original node.
     new_node->keys_ = node->keys_;
@@ -1171,7 +1048,7 @@ BPlusTree<Key, RecordId, Order, compare>::deep_copy_node(const InternalNodePtr& 
         } else if (std::holds_alternative<LeafNodePtr>(child)) {
         
             auto leaf = std::get<LeafNodePtr>(child);
-            auto new_leaf = std::make_shared<LeafNode<Key, RecordId, Order>>();
+            auto new_leaf = make_shared<LeafNode<Key, RecordId, Order>>();
             
             // Copy the keys and values from the original leaf node.
             new_leaf->keys_ = leaf->keys_;
@@ -1204,7 +1081,7 @@ void BPlusTree<Key, RecordId, Order, compare>::rebuild_leaf_links() {
     // If the tree is empty, return immediately.
     if (std::holds_alternative<std::monostate>(root_)) return;
 
-    std::vector<LeafNodePtr> leaves;
+    DynamicArray<LeafNodePtr> leaves;
     collect_leaves(root_, leaves);
 
     // Iterate over the leaf nodes and set the next pointer of each node.
@@ -1226,7 +1103,7 @@ void BPlusTree<Key, RecordId, Order, compare>::rebuild_leaf_links() {
 template <typename Key, typename RecordId, size_t Order, typename compare>
 void BPlusTree<Key, RecordId, Order, compare>::collect_leaves(
     const VariantNode<Key, RecordId, Order>& node, 
-    std::vector<LeafNodePtr>& leaves) {
+    DynamicArray<LeafNodePtr>& leaves) {
     
     // If the node is a leaf node, add it to the vector.
     if (std::holds_alternative<LeafNodePtr>(node)) {
