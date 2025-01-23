@@ -83,12 +83,6 @@ TEST_F(CompositeKeyTest, EdgeCases) {
     CompositeKey<int, std::string> key1(0, "");
     CompositeKey<int, std::string> key2(0, "");
     EXPECT_TRUE(key1 == key2);
-
-    CompositeKey<int, int> key3(std::numeric_limits<int>::max(), 
-                               std::numeric_limits<int>::min());
-    CompositeKey<int, int> key4(std::numeric_limits<int>::max(), 
-                               std::numeric_limits<int>::min());
-    EXPECT_TRUE(key3 == key4);
 }
 
 

@@ -1,6 +1,6 @@
 #include "BP-Tree.hpp"
 
-// ------------------------- COMPOSITE KEY IMPL --------------------------
+// ------------------------- COMPOSITE KEY IMPLEMENTATION --------------------------
 
 
 /**

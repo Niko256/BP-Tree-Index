@@ -89,7 +89,7 @@ template <typename Key, typename RecordId, size_t Order, typename compare>
 template <typename T>
 void BPlusTree<Key, RecordId, Order, compare>::insert(const Key& key, T&& id) {
 
-    // Acquire exclusive lock for the root to prevent concurrent modifications
+    // Acquire exclusive lock for the root 
     std::unique_lock<std::shared_mutex> write_lock(root_mutex_);
 
     // Handle insertion into empty tree
