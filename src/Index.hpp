@@ -1,5 +1,6 @@
 #pragma once
 #include "BP-Tree.hpp"
+#include "Composite-Key.hpp"
 
 template<typename... Fields> class Record {
   private:

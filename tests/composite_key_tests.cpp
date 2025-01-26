@@ -117,14 +117,12 @@ TEST_F(CompositeKeyTest, UpdateExistingKey) {
     BPlusTree<KeyType, std::string> tree;
 
     tree.insert(KeyType(1, "key"), "initial_value");
-    
-    EXPECT_THROW({
-        tree.insert(KeyType(1, "key"), "updated_value");
-    }, std::runtime_error);
+    tree.insert(KeyType(1, "key"), "updated_value");  // Should not throw
 
     auto result = tree.find(KeyType(1, "key"));
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0], "initial_value");
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "initial_value") != result.end());
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "updated_value") != result.end());
 }
 
 

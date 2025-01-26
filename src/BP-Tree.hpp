@@ -3,31 +3,10 @@
 #include "../external/Data_Structures/Containers/Dynamic_Array.hpp"
 #include "../external/Data_Structures/Containers/Pair.hpp"
 #include "../external/Data_Structures/SmartPtrs/include/SharedPtr.hpp"
+#include "Composite-Key.hpp"
 #include <functional>
 #include <shared_mutex>
-#include <tuple>
 #include <variant>
-
-
-template <typename... Keys>
-struct CompositeKey {
-    std::tuple<Keys...> parameters_; ///< Tuple storing the individual keys.
-
-    CompositeKey(Keys... keys) : parameters_(std::make_tuple(keys...)) {}
-    CompositeKey() : parameters_() {}
-    CompositeKey(const CompositeKey& other) = default;
-    CompositeKey(CompositeKey&& other) noexcept = default;
-
-    CompositeKey& operator=(const CompositeKey& other) = default;
-    CompositeKey& operator=(CompositeKey&& other) noexcept = default;
-
-    template <size_t I>
-    const auto& get() const;
-
-    bool operator<(const CompositeKey& other) const;
-    bool operator>(const CompositeKey& other) const;
-    bool operator==(const CompositeKey& other) const;
-};
 
 
 // forward declaration
@@ -38,7 +17,7 @@ template <typename Key, typename RecordId, size_t Order>
 struct LeafNode;
 
 
-// CRTP
+// CRTP (Curiously Recurring Template Pattern)
 template <typename Derived> struct BaseNode {
     bool is_leaf() const {
         return static_cast<const Derived*>(this)->is_leaf_impl();

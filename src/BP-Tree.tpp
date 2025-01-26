@@ -3,9 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <mutex>
-#include <shared_mutex>
 #include <stdexcept>
-#include <variant>
 
 
 // ---------------- B+TREE IMPLEMENTATION ----------------
@@ -121,9 +119,6 @@ void BPlusTree<Key, RecordId, Order, compare>::insert(const Key& key, T&& id) {
     size_t insert_pos = it - leaf->keys_.begin();
 
     // Check for duplicate keys
-    if (it != leaf->keys_.end() && !comparator_(key, *it) && !comparator_(*it, key)) {
-        throw std::runtime_error("Duplicate key");
-    }
 
     // Insert the key-value pair at the appropriate position
     leaf->keys_.insert(leaf->keys_.begin() + insert_pos, key);
@@ -292,6 +287,7 @@ void BPlusTree<Key, RecordId, Order, compare>::split_internal(InternalNodePtr no
 template <typename Key, typename RecordId, size_t Order, typename compare>
 typename BPlusTree<Key, RecordId, Order, compare>::InternalNodePtr
 BPlusTree<Key, RecordId, Order, compare>::find_parent(const VariantNode<Key, RecordId, Order>& target) {
+
     // If tree is empty or target is root, return nullptr
     if (std::holds_alternative<std::monostate>(root_) || root_ == target) {
         return nullptr;
@@ -590,14 +586,16 @@ DynamicArray<RecordId> BPlusTree<Key, RecordId, Order, compare>::find(const Key&
 
     // Search for the key in the leaf node
     auto it = std::lower_bound(leaf->keys_.begin(), leaf->keys_.end(), key, comparator_);
-    if (it != leaf->keys_.end() && !comparator_(key, *it) && !comparator_(*it, key)) {
-        
-        size_t index = it - leaf->keys_.begin();
-        DynamicArray<RecordId> result;
-        result.push_back(leaf->values_[index]);
+    DynamicArray<RecordId> result;
 
-        return result;
+    // Collect all matching records
+    while (it != leaf->keys_.end() && !comparator_(key, *it) && !comparator_(*it, key)) {
+        size_t index = it - leaf->keys_.begin();
+        result.push_back(leaf->values_[index]); 
+        ++it;
     }
+
+    return result;
 
     // Return empty vector if key not found
     return DynamicArray<RecordId>();

@@ -45,12 +45,16 @@ TEST_F(BPlusTreeTest, InsertMultipleElements) {
     EXPECT_EQ(result2[0], "value2");
 }
 
-TEST_F(BPlusTreeTest, InsertDuplicateKeyThrowsException) {
+TEST_F(BPlusTreeTest, InsertDuplicateKeyAllowed) {
     std::string value1 = "value1";
     std::string value2 = "value2";
     tree_->insert(10, value1);
-
-    EXPECT_THROW(tree_->insert(10, value2), std::runtime_error);
+    tree_->insert(10, value2);  // Should not throw
+    
+    auto result = tree_->find(10);
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "value1") != result.end());
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "value2") != result.end());
 }
 
 TEST_F(BPlusTreeTest, InsertInAscendingOrder) {
@@ -93,7 +97,6 @@ TEST_F(BPlusTreeTest, InsertRandomOrder) {
 }
 
 TEST_F(BPlusTreeTest, InsertCausingNodeSplit) {
-    // Assuming Order = 4 for this test
     tree_->insert(10, "value10");
     tree_->insert(20, "value20");
     tree_->insert(30, "value30");
@@ -176,13 +179,12 @@ TEST_F(BPlusTreeTest, ConcurrentInsert) {
 
 TEST_F(BPlusTreeTest, InsertSameKeyDifferentValue) {
     tree_->insert(1, "value1");
-    EXPECT_THROW({
-        tree_->insert(1, "value2");
-    }, std::runtime_error);
+    tree_->insert(1, "value2");  // Should not throw
 
     auto result = tree_->find(1);
-    ASSERT_EQ(result.size(), 1);
-    EXPECT_EQ(result[0], "value1"); // Original value should remain
+    ASSERT_EQ(result.size(), 2);
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "value1") != result.end());
+    EXPECT_TRUE(std::find(result.begin(), result.end(), "value2") != result.end());
 }
 
 
