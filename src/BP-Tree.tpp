@@ -73,8 +73,6 @@ bool BPlusTree<Key, RecordId, Order, compare>::is_less_or_eq(const Key& key1, co
  * @param key The key to insert
  * @param id The record ID associated with the key
  * 
- * @throws std::runtime_error If a duplicate key is found or if leaf node finding fails
- * 
  * @details
  * This method handles the insertion of new key-value pairs into the B+ tree.
  * It handles the following cases:
