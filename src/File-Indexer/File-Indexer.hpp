@@ -18,6 +18,7 @@
 
 class FileIndexer {
   private:
+
     std::unique_ptr<NameIndex> name_index_;
     std::unique_ptr<SizeIndex> size_index_;
     std::unique_ptr<ExtensionIndex> extension_index_;

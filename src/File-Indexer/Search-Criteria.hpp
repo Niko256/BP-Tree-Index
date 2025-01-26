@@ -18,8 +18,6 @@ class SearchCriteria {
     /**
      * @brief Parses a size string (e.g., "10K", "100M") into bytes.
      *
-     * @param size_str The size string to parse.
-     * @return The size in bytes.
      */
     size_t parse_size(const std::string& size_str) const {
         if (size_str.empty()) return 0;

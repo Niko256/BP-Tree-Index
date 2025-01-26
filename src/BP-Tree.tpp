@@ -77,7 +77,7 @@ bool BPlusTree<Key, RecordId, Order, compare>::is_less_or_eq(const Key& key1, co
  * 
  * @details
  * This method handles the insertion of new key-value pairs into the B+ tree.
- * It's thread-safe and handles the following cases:
+ * It handles the following cases:
  * 1. Insertion into an empty tree
  * 2. Insertion into an existing leaf node
  * 3. Splitting of full nodes when necessary
@@ -112,10 +112,7 @@ void BPlusTree<Key, RecordId, Order, compare>::insert(const Key& key, T&& id) {
     std::unique_lock<std::shared_mutex> leaf_lock(leaf->mutex_);
 
     // Find the position where the key should be inserted
-    auto it = std::lower_bound(leaf->keys_.begin(), 
-                             leaf->keys_.end(), 
-                             key, 
-                             comparator_);
+    auto it = std::lower_bound(leaf->keys_.begin(), leaf->keys_.end(),key, comparator_);
     size_t insert_pos = it - leaf->keys_.begin();
 
     // Check for duplicate keys

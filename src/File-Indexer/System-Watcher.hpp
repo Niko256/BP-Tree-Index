@@ -29,7 +29,7 @@ enum class FileSystemEvent {
  * and the type of event.
  */
 class FileSystemWatcher {
-private:
+  private:
     std::thread watch_thread_; // Thread used to monitor the directory.
     std::atomic<bool> should_stop_{false}; // Flag to stop the monitoring thread.
     std::string watch_path_; // Path of the directory to monitor.
@@ -53,7 +53,7 @@ private:
         }
     };
 
-public:
+  public:
     /**
      * @brief Starts monitoring the specified directory.
      *
@@ -75,7 +75,7 @@ public:
         }
     }
 
-private:
+  private:
 
     /**
      * @brief Retrieves information about a file or directory.
@@ -130,9 +130,7 @@ private:
         namespace fs = std::filesystem;
         std::error_code ec;
         
-        for (const auto& entry : fs::recursive_directory_iterator(
-                watch_path_, 
-                fs::directory_options::skip_permission_denied, ec)) {
+        for (const auto& entry : fs::recursive_directory_iterator(watch_path_, fs::directory_options::skip_permission_denied, ec)) {
             if (ec) {
                 ec.clear();
                 continue;
