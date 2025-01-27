@@ -57,6 +57,7 @@ class SearchCriteria {
     }
 
   public:
+    
     std::string terms_; // Search terms or keywords to match.
     std::string size_filter; // Filter for file size (e.g., ">1M", "<100K").
     std::string date_filter; // Filter for modification date (e.g., "last_week", "2023-01-01").

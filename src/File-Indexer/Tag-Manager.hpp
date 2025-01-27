@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Index.hpp"
-#include <map>
+#include "../../external/Data_Structures/Containers/HashTable/Hash_Table.hpp"
 
 /**
  * @class TagManager
@@ -12,8 +12,8 @@
  */
 class TagManager {
   private:
-    std::map<std::string, DynamicArray<std::string>> file_tags_; // Maps file paths to their associated tags.
-    std::map<std::string, DynamicArray<std::string>> tags_to_files_; // Maps tags to the list of files that have them.
+    HashTable<std::string, DynamicArray<std::string>> file_tags_; // Maps file paths to their associated tags.
+    HashTable<std::string, DynamicArray<std::string>> tags_to_files_; // Maps tags to the list of files that have them.
 
   public:
 
@@ -57,7 +57,7 @@ class TagManager {
     DynamicArray<std::string> get_tags(const std::string& path) {
         auto it = file_tags_.find(path);
         if (it != file_tags_.end()) {
-            return it->second;
+            return it->get_value();
         }
         return DynamicArray<std::string>();
     }
@@ -70,12 +70,12 @@ class TagManager {
      *
      */
     DynamicArray<std::string> find_by_tag(const std::string& tag) {
-        // Find the tag in the `tags_to_files_` map.
+        // Find the tag in the `tags_to_files_` HashTable.
         auto it = tags_to_files_.find(tag);
         
         // If the tag is found, return the list of files associated with it.
         if (it != tags_to_files_.end()) {
-            return it->second;
+            return it->get_value();
         }
         
         // If the tag is not found, return an empty array.

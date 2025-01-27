@@ -10,6 +10,7 @@
  */
 
 struct FileInfo {
+
     size_t id_; // Unique identifier for the file.
 
     std::string name_; // Name of the file or directory.

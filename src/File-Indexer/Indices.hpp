@@ -4,7 +4,7 @@
 #include "File-Info.hpp"
 #include <ctime>
 #include <utility>
-
+#include "../../external/Data_Structures/Containers/Pair.hpp"
 
 /**
  * @class NameIndex
@@ -20,10 +20,10 @@ class NameIndex : public Index<FileInfo, std::string> {
  * @class SizeIndex
  * @brief Indexes files by their sizes.
  */
-class SizeIndex : public Index<FileInfo, std::pair<size_t, std::string>> {
+class SizeIndex : public Index<FileInfo, Pair<size_t, std::string>> {
   public:
     SizeIndex() : Index([](const FileInfo& file) { 
-        return std::make_pair(file.size_, file.path_); 
+        return Pair<size_t, std::string>(file.size_, file.path_);
     }) {}
 };
 
@@ -32,10 +32,10 @@ class SizeIndex : public Index<FileInfo, std::pair<size_t, std::string>> {
  * @class ExtensionIndex
  * @brief Indexes files by their extensions.
  */
-class ExtensionIndex : public Index<FileInfo, std::pair<std::string, std::string>> {
+class ExtensionIndex : public Index<FileInfo, Pair<std::string, std::string>> {
   public:
     ExtensionIndex() : Index([](const FileInfo& file) { 
-        return std::make_pair(file.extension_, file.path_);
+        return Pair<std::string, std::string>(file.extension_, file.path_);
     }) {}
 };
 
@@ -44,9 +44,9 @@ class ExtensionIndex : public Index<FileInfo, std::pair<std::string, std::string
  * @class TimeIndex
  * @brief Indexes files by their modification times.
  */
-class TimeIndex : public Index<FileInfo, std::pair<std::time_t, std::string>> {
+class TimeIndex : public Index<FileInfo, Pair<std::time_t, std::string>> {
   public:
     TimeIndex() : Index([](const FileInfo& file) { 
-        return std::make_pair(file.modified_time_, file.path_); 
+        return Pair<std::time_t, std::string>(file.modified_time_, file.path_);
     }) {}
 };

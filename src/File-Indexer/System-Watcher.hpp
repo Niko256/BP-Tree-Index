@@ -6,8 +6,9 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <map>
 #include <system_error>
+#include "../../external/Data_Structures/Containers/HashTable/Hash_Table.hpp"
+
 
 /**
  * @enum FileSystemEvent
@@ -105,7 +106,7 @@ class FileSystemWatcher {
      * @brief Monitors the directory for changes.
      */
     void watch_directory() {
-        std::map<std::string, FileInfo> file_status; // Tracks the state of files in the directory
+        HashTable<std::string, FileInfo> file_status; // Tracks the state of files in the directory
         
         init_file_status(file_status); // Initialize the initial state of files
         
@@ -122,11 +123,11 @@ class FileSystemWatcher {
 
     
     /**
-     * @brief Initializes the file status map with the current state of the directory.
+     * @brief Initializes the file status HashTable with the current state of the directory.
      *
-     * @param file_status A map to store the initial state of files.
+     * @param file_status A HashTable to store the initial state of files.
      */
-    void init_file_status(std::map<std::string, FileInfo>& file_status) {
+    void init_file_status(HashTable<std::string, FileInfo>& file_status) {
         namespace fs = std::filesystem;
         std::error_code ec;
         
@@ -144,12 +145,12 @@ class FileSystemWatcher {
     /**
      * @brief Checks for changes in the directory and invokes the callback if changes are detected.
      *
-     * @param file_status A map containing the previous state of files.
+     * @param file_status A HashTable containing the previous state of files.
      */
-    void check_for_changes(std::map<std::string, FileInfo>& file_status) {
+    void check_for_changes(HashTable<std::string, FileInfo>& file_status) {
         namespace fs = std::filesystem;
         std::error_code ec;
-        std::map<std::string, FileInfo> current_status; // Tracks the current state of files
+        HashTable<std::string, FileInfo> current_status; // Tracks the current state of files
         
         for (const auto& entry : fs::recursive_directory_iterator(
                 watch_path_,
@@ -166,7 +167,7 @@ class FileSystemWatcher {
             if (it == file_status.end()) {
                 // File was created
                 callback_(path, FileSystemEvent::CREATED);
-            } else if (current_status[path] != it->second) {
+            } else if (current_status[path] != it->get_value()) {
                 // File was modified
                 callback_(path, FileSystemEvent::MODIFIED);
             }
@@ -180,7 +181,7 @@ class FileSystemWatcher {
             }
         }
         
-        // Update the file status map
+        // Update the file status HashTable
         file_status = std::move(current_status);
     }
 };
