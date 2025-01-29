@@ -22,31 +22,7 @@ class TagManager {
      *
      * Associates a tag with a specific file. If the tag already exists for the file, it is not duplicated.
      */
-    void add_tag(const std::string& path, const std::string& tag) {
-        auto& tags = file_tags_[path];
-        bool tag_exists = false;
-        for (size_t i = 0; i < tags.size(); ++i) {
-            if (tags[i] == tag) {
-                tag_exists = true;
-                break;
-            }
-        }
-        if (!tag_exists) {
-            tags.push_back(tag);
-        }
-
-        auto& files = tags_to_files_[tag];
-        bool file_exists = false;
-        for (size_t i = 0; i < files.size(); ++i) {
-            if (files[i] == path) {
-                file_exists = true;
-                break;
-            }
-        }
-        if (!file_exists) {
-            files.push_back(path);
-        }
-    }
+    void add_tag(const std::string& path, const std::string& tag); 
 
 
     /**
@@ -54,22 +30,56 @@ class TagManager {
      *
      * Returns a list of tags that have been assigned to the specified file.
      */
-    DynamicArray<std::string> get_tags(const std::string& path) {
-        auto it = file_tags_.find(path);
-        if (it != file_tags_.end()) {
-            return it->get_value();
-        }
-        return DynamicArray<std::string>();
-    }
-
+    DynamicArray<std::string> get_tags(const std::string& path);
 
     /**
      * @brief Finds files associated with a specific tag.
-     *
      * Returns a list of file paths that have been tagged with the specified tag.
-     *
      */
-    DynamicArray<std::string> find_by_tag(const std::string& tag) {
+    DynamicArray<std::string> find_by_tag(const std::string& tag);
+};
+
+
+
+void TagManager::add_tag(const std::string& path, const std::string& tag) {
+    auto& tags = file_tags_[path];
+    bool tag_exists = false;
+    for (size_t i = 0; i < tags.size(); ++i) {
+        if (tags[i] == tag) {
+            tag_exists = true;
+            break;
+        }
+    }
+    if (!tag_exists) {
+        tags.push_back(tag);
+    }
+
+    auto& files = tags_to_files_[tag];
+    bool file_exists = false;
+    for (size_t i = 0; i < files.size(); ++i) {
+        if (files[i] == path) {
+            file_exists = true;
+            break;
+        }
+    }
+    if (!file_exists) {
+        files.push_back(path);
+    }
+}
+
+
+
+DynamicArray<std::string> TagManager::get_tags(const std::string& path) {
+    auto it = file_tags_.find(path);
+    if (it != file_tags_.end()) {
+        return it->get_value();
+    }
+    return DynamicArray<std::string>();
+}
+
+
+
+DynamicArray<std::string> TagManager::find_by_tag(const std::string& tag) {
         // Find the tag in the `tags_to_files_` HashTable.
         auto it = tags_to_files_.find(tag);
         
@@ -81,4 +91,3 @@ class TagManager {
         // If the tag is not found, return an empty array.
         return DynamicArray<std::string>();
     }
-};

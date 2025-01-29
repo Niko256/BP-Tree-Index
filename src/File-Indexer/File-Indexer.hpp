@@ -12,7 +12,7 @@
 #include <openssl/evp.h>
 #include <set>
 #include "../../external/Data_Structures/SmartPtrs/include/UniquePtr.hpp"
-
+#include <atomic>
 /**
  * @class FileIndexer
  * @brief A class responsible for indexing and managing files in a directory.
@@ -30,19 +30,10 @@ class FileIndexer {
     
     TagManager tag_manager_; ///< Manager for file tags.
     
-    FileSystemWatcher fs_watcher_; ///< Watcher for file system events.
-    
     DynamicArray<FileInfo> files_; ///< Array of indexed file information.
     std::atomic<size_t> next_id_{0}; ///< Next unique ID for file indexing.
     
-    /**
-     * @brief Handles file system events (creation, modification, deletion).
-     *
-     * @param path The path of the file or directory affected.
-     * @param event The type of file system event.
-     */
-    void handle_fs_event(const std::string& path, FileSystemEvent event); 
-    
+
     /**
      * @brief Adds a file to the index.
      */
@@ -104,16 +95,6 @@ class FileIndexer {
      * @brief Finds duplicate files based on their content hash.
      */
     DynamicArray<DuplicateGroup> find_duplicates(); 
-    
-    /**
-     * @brief Starts monitoring a directory for changes.
-     */
-    void start_monitoring(const std::string& path); 
-    
-    /**
-     * @brief Stops monitoring the directory.
-     */
-    void stop_monitoring(); 
 };
 
 #include "File-Indexer.tpp"
