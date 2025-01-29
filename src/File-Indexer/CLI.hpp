@@ -45,11 +45,6 @@ class CLI {
     void handle_statistics();
 
     /**
-     * @brief Handles duplicate file detection
-     */
-    void handle_duplicates();
-
-    /**
      * @brief Displays search results in a formatted manner
      */
     void display_results(DynamicArray<SearchResult>& results);

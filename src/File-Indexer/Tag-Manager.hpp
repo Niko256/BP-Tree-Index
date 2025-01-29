@@ -20,7 +20,7 @@ class TagManager {
     /**
      * @brief Adds a tag to a file.
      *
-     * Associates a tag with a specific file. If the tag already exists for the file, it is not duplicated.
+     * Associates a tag with a specific file
      */
     void add_tag(const std::string& path, const std::string& tag); 
 

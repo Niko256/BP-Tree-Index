@@ -7,8 +7,7 @@ void CLI::print_menu() {
             << "2. Search\n"
             << "3. Tag Management\n"
             << "4. Statistics\n"
-            << "5. Find Duplicates\n"
-            << "6. Exit\n"
+            << "5. Exit\n"
             << "Choice: ";
 }
 
@@ -18,23 +17,42 @@ void CLI::handle_index_dir() {
     std::getline(std::cin, path);
 
     if (path.empty()) {
-        std::cout << "Error: Directory path cannot be empty.\n";
+        std::cout << "\nError: Directory path cannot be empty.\n";
+        return;
+    }
+
+    if (!std::filesystem::exists(path)) {
+        std::cout << "\nError: Directory does not exist.\n";
+        return;
+    }
+
+    if (!std::filesystem::is_directory(path)) {
+        std::cout << "\nError: The provided path is not a directory.\n";
         return;
     }
 
     std::cout << "Indexing directory: " << path << "\n";
+
     try {
         indexer_.index_directory(path);
         current_dir_ = path;
         std::cout << "Directory indexed successfully.\n";
     } catch (const std::exception& e) {
-        std::cout << "Error indexing directory: " << e.what() << "\n";
+        std::cout << "\nError indexing directory: " << e.what() << "\n";
     }
 }
 
+
+
 void CLI::handle_search() {
+    if (current_dir_.empty()) {
+        std::cout << "\nError: No directory has been indexed. Please use option 1 first.\n";
+        return;
+    }
+
     // Create search criteria object to collect search parameters
     SearchCriteria criteria;
+    bool has_errors = false;
 
     // Get search terms from user
     std::cout << "Enter search terms (empty to skip): ";
@@ -43,17 +61,18 @@ void CLI::handle_search() {
 
     // Add search terms if provided
     if (!terms.empty()) {
-        criteria.add_terms(terms);
+        criteria.add_name_filter(terms);
     }
 
     // Get size filter from user
     std::cout << "Enter size filter (e.g., >1M, <500K, empty to skip): ";
     std::string size_filter;
     std::getline(std::cin, size_filter);
-
-    // Add size filter if provided
     if (!size_filter.empty()) {
-        criteria.add_size_filter(size_filter);
+        if (!criteria.add_size_filter(size_filter)) {
+            std::cout << "Invalid size filter format. Examples: >1M, <500K, =10G\n";
+            has_errors = true;
+        }
     }
 
     // Get date filter from user
@@ -61,16 +80,16 @@ void CLI::handle_search() {
     std::string date_filter;
     std::getline(std::cin, date_filter);
     
-    // Add date filter if provided
-    if (!date_filter.empty()) {
-        criteria.add_date_filter(date_filter);
+    if (has_errors) {
+        std::cout << "\nSearch aborted due to invalid filters.\n";
+        return;
     }
 
-    // Perform search and display results
     std::cout << "Searching...\n";
     auto results = indexer_.search(criteria);
     display_results(results);
 }
+
 
 void CLI::handle_tags() {
     // Verify that a directory has been indexed
@@ -149,7 +168,14 @@ void CLI::handle_tags() {
     }
 }
 
+
+
 void CLI::handle_statistics() {
+    if (current_dir_.empty()) {
+        std::cout << "\nError: No directory has been indexed. Please use option 1 first.\n";
+        return;
+    }
+
     // Get statistics from indexer
     auto stats = indexer_.get_statistics();
     
@@ -172,25 +198,6 @@ void CLI::handle_statistics() {
     }
 }
 
-void CLI::handle_duplicates() {
-    std::cout << "Searching for duplicates...\n";
-    
-    // Get duplicate groups from indexer
-    auto duplicates = indexer_.find_duplicates();
-    
-    // Initialize total space counter
-    size_t total_space = 0;
-    
-    // Display duplicate groups
-    for (auto& group : duplicates) {
-        if (group.paths.size() > 1) {
-            std::cout << "\nDuplicate files (hash: " << group.hash << "):\n";
-            for (auto& path : group.paths) {
-                std::cout << "  " << path << "\n";
-            }
-        }
-    }
-}
 
 
 void CLI::display_results(DynamicArray<SearchResult>& results) {
@@ -234,8 +241,7 @@ void CLI::run() {
         else if (choice == "2") handle_search();
         else if (choice == "3") handle_tags();
         else if (choice == "4") handle_statistics();
-        else if (choice == "5") handle_duplicates();
-        else if (choice == "6") break;  // Exit program
+        else if (choice == "5") break;  // Exit program
         else std::cout << "Invalid choice. Try again.\n";
     }
 }

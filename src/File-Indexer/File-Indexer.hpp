@@ -5,7 +5,6 @@
 #include <openssl/sha.h>
 #include "File-Info.hpp"
 #include "Indices.hpp"
-#include "System-Watcher.hpp"
 #include "Tag-Manager.hpp"
 #include "Search-Criteria.hpp"
 #include "Search-Result.hpp"
@@ -18,7 +17,7 @@
  * @brief A class responsible for indexing and managing files in a directory.
  *
  * This class provides functionality to index files, monitor file system changes,
- * search for files based on criteria, manage tags, and find duplicate files.
+ * search for files based on criteria, manage tags
  */
 class FileIndexer {
   private:
@@ -86,15 +85,6 @@ class FileIndexer {
      */
     FileSystemStats get_statistics(); 
 
-    /**
-     * @brief Calculates the SHA-256 hash of a file.
-     */
-    std::string calculate_file_hash(const std::string& path); 
-
-    /**
-     * @brief Finds duplicate files based on their content hash.
-     */
-    DynamicArray<DuplicateGroup> find_duplicates(); 
 };
 
 #include "File-Indexer.tpp"

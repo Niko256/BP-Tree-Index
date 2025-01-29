@@ -102,88 +102,19 @@ DynamicArray<std::string> FileIndexer::find_by_tag(const std::string& tag) {
 
 
 DynamicArray<SearchResult> FileIndexer::search(const SearchCriteria& criteria) {
-    // Log search criteria
-    std::cout << "Searching with criteria:\n";
-    if (!criteria.get_terms().empty())
-        std::cout << "- Name contains: '" << criteria.get_terms() << "'\n";
-    if (!criteria.get_size_filter().empty())
-        std::cout << "- Size: " << criteria.get_size_filter() << "\n";
-    if (!criteria.get_date_filter().empty())
-        std::cout << "- Date: " << criteria.get_date_filter() << "\n";
-
-    std::set<std::string> matching_paths;
-    bool first_filter = true;  // Flag for first applied filter
-
-    // Search by name terms if provided
-    if (!criteria.get_terms().empty()) {
-        std::set<std::string> name_matches;
-        // Find files matching name criteria
-        auto files = name_index_->find_if([&](const FileInfo& file) {
-            return file.name_.find(criteria.get_terms()) != std::string::npos; 
-        });
-        // Convert results to path set
-        for (const auto& file : files) {
-            name_matches.insert(file.path_);
-        }
-        
-        // Handle first filter or combine with previous results
-        if (first_filter) {
-            matching_paths = std::move(name_matches);
-            first_filter = false;
-        } else {
-            // Perform set intersection for AND 
-            std::set<std::string> intersection;
-            std::set_intersection(
-                matching_paths.begin(), matching_paths.end(),
-                name_matches.begin(), name_matches.end(),
-                std::inserter(intersection, intersection.begin())
-            );
-            matching_paths = std::move(intersection);
-        }
-    }
-
-    // Search by size if filter provided
-    if (!criteria.get_size_filter().empty()) {
-        std::set<std::string> size_matches;
-        // Find files matching size criteria
-        auto files = size_index_->find_if([&](const FileInfo& file) {
-            return criteria.matches_size_filter(file.size_); 
-        });
-        // Convert results to path set
-        for (const auto& file : files) {
-            size_matches.insert(file.path_);
-        }
-
-        // Handle first filter or combine with previous results
-        if (first_filter) {
-            matching_paths = std::move(size_matches);
-            first_filter = false;
-        } else {
-            // Perform set intersection for AND
-            std::set<std::string> intersection;
-            std::set_intersection(
-                matching_paths.begin(), matching_paths.end(),
-                size_matches.begin(), size_matches.end(),
-                std::inserter(intersection, intersection.begin())
-            );
-            matching_paths = std::move(intersection);
-        }
-    }
-
-    // Convert matching paths to SearchResult objects
     DynamicArray<SearchResult> results;
-    for (const auto& path : matching_paths) {
-        for (const auto& file : files_) {
-            if (file.path_ == path) {
-                results.push_back({file, "", 1.0});  // Add with empty context and full relevance
-                break;
-            }
+    std::cout << "Searching...\n";
+
+    for (const auto& file : files_) {
+        if (criteria.matches(file)) {
+            results.push_back({file, "", 1.0});
         }
     }
 
-    std::cout << "\nFound " << results.size() << " files matching all criteria.\n";
+    std::cout << "Found " << results.size() << " files matching criteria.\n";
     return results;
 }
+
 
 /**
  * @brief Collects and returns file system statistics
@@ -215,83 +146,4 @@ FileSystemStats FileIndexer::get_statistics() {
     }
         
     return stats;
-}
-
-/**
- * @brief Calculates SHA-256 hash of a file
- * 
- * Reads file in chunks and calculates its cryptographic hash
- * Uses OpenSSL's EVP interface for hash calculation
- */
-std::string FileIndexer::calculate_file_hash(const std::string& path) {
-
-    // Open file in binary mode
-    std::ifstream file(path, std::ios::binary);
-    if (!file) return "";
-
-    // Initialize OpenSSL hash context
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    if (!ctx) return "";
-
-    // Initialize SHA-256 hashing
-    if (!EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr)) {
-        EVP_MD_CTX_free(ctx);
-        return "";
-    }
-
-    // Read and hash file in chunks
-    char buffer[8192];
-    while (file.read(buffer, sizeof(buffer))) {
-        if (!EVP_DigestUpdate(ctx, buffer, file.gcount())) {
-            EVP_MD_CTX_free(ctx);
-            return "";
-        }
-    }
-
-    // Finalize hash calculation
-    unsigned char hash[EVP_MAX_MD_SIZE];
-    unsigned int hash_len;
-    
-    if (!EVP_DigestFinal_ex(ctx, hash, &hash_len)) {
-        EVP_MD_CTX_free(ctx);
-        return "";
-    }
-
-    EVP_MD_CTX_free(ctx);
-
-    // Convert hash to hexadecimal string
-    std::stringstream ss;
-    for (unsigned int i = 0; i < hash_len; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') 
-           << static_cast<int>(hash[i]);
-    }
-    return ss.str();
-}
-
-
-/**
- * @brief Finds duplicate files based on content hash
- * 
- * Groups files by their SHA-256 hash to identify duplicates
- */
-DynamicArray<DuplicateGroup> FileIndexer::find_duplicates() {
-    // Map to group files by hash
-    HashTable<std::string, DynamicArray<std::string>> hash_groups;
-        
-    // Calculate hash for each file and group them
-    for (auto& file : files_) {
-        if (!file.is_dir_) {
-            std::string hash = calculate_file_hash(file.path_);
-            hash_groups[hash].push_back(file.path_);
-        }
-    }
-        
-    // Create result array with groups of duplicates
-    DynamicArray<DuplicateGroup> result;
-    for (const auto& [hash, paths] : hash_groups) {
-        if (paths.size() > 1) {  // Only include groups with multiple files
-            result.push_back({hash, paths});
-        }
-    }
-    return result;
 }

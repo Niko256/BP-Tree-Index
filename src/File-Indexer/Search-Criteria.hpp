@@ -1,78 +1,99 @@
 #pragma once
 
 #include <string>
-#include <algorithm>
-#include "../../external/Data_Structures/Containers/Dynamic_Array.hpp"
+#include <sstream>
+#include <iomanip>
+#include <ctime>
+#include "File-Info.hpp"
 
 /**
  * @class SearchCriteria
  * @brief Represents search criteria for filtering files or other entities.
  *
- * This class provides a flexible way to specify search parameters for file system queries.
- * It supports multiple filter types including:
- * - Text-based search terms
- * - File size filters (e.g., ">1M", "<100K")
- * - Date-based filters
- * - Tag-based filters
- * - Result limit specification
+ * This class allows users to define search parameters such as size constraints,
+ * date ranges, name patterns.
  */
 class SearchCriteria {
   private:
-    
-    std::string terms_;              // Search terms or keywords to match
-    std::string size_filter_;        // Filter for file size (e.g., ">1M", "<100K")
-    std::string date_filter_;        // Filter for modification date
-    DynamicArray<std::string> tags_; // List of tags to filter by
-    size_t max_results_;             // Maximum number of results to return
+    /**
+     * @enum CompareOp
+     * @brief Represents comparison operators for filters.
+     */
+    enum class CompareOp {
+        None,    // No comparison operation.
+        Greater, // Greater than comparison.
+        Less,    // Less than comparison.
+        Equal    // Equal to comparison.
+    };
 
     /**
-     * @brief Parses a size string into bytes
-     * @param size_str String representing size ("10K", "100M", ...)
-     * @return Size in bytes
+     * @struct SizeFilter
+     * @brief Represents a filter for file size.
      */
-    size_t parse_size(const std::string& size_str) const;
+    struct SizeFilter {
+        CompareOp op = CompareOp::None; // Comparison operator (>, <, =).
+        size_t value = 0; // Size value in bytes.
+        bool enabled = false; // Whether the filter is active.
+    };
+
+    /**
+     * @struct DateFilter
+     * @brief Represents a filter for file modification date.
+     */
+    struct DateFilter {
+        CompareOp op = CompareOp::None; // Comparison operator (>, <, =).
+        std::time_t value = 0; // Date value as a timestamp.
+        bool enabled = false; // Whether the filter is active.
+    };
+
+    SizeFilter size_filter_; // Filter for file size.
+    DateFilter date_filter_; // Filter for file modification date.
+    std::string name_pattern_; // Pattern for filtering file names.
+    bool use_name_filter_ = false; 
+    size_t max_results_ = 100; // Maximum number of results to return.
+
+    /**
+     * @brief Converts a size string into bytes.
+     * @param size_str The size string to convert.
+     * @return The size in bytes, or 0 if the input is invalid.
+     */
+    size_t convert_to_bytes(const std::string& size_str) const;
 
   public:
-    
-    SearchCriteria();
 
     /**
-     * @brief Adds search terms to the criteria
-     * @param search_terms The search terms or keywords to match
+     * @brief Adds a size filter to the search criteria.
+     * @param filter The size filter string (e.g., ">1M", "<500K").
      */
-    SearchCriteria& add_terms(const std::string& search_terms);
+    bool add_size_filter(const std::string& filter);
 
     /**
-     * @brief Adds a size filter to the criteria
-     * @param filter Size filter string (">1M", "<100K", ...)
+     * @brief Adds a date filter to the search criteria.
+     * @param filter The date filter string (e.g., ">2025-01-01", "<2025-12-12").
      */
-    SearchCriteria& add_size_filter(const std::string& filter);
+    bool add_date_filter(const std::string& filter);
 
     /**
-     * @brief Adds a date filter to the criteria
+     * @brief Adds a name pattern filter to the search criteria.
+     * @param pattern The pattern to match in file names.
      */
-    SearchCriteria& add_date_filter(const std::string& filter);
+    void add_name_filter(const std::string& pattern);
 
     /**
-     * @brief Adds a tag to the criteria
+     * @brief Checks if a file matches the search criteria.
+     * @param file The file to check.
+     * @return True if the file matches all active filters, false otherwise.
      */
-    SearchCriteria& add_tag(const std::string& tag);
+    bool matches(const FileInfo& file) const;
 
     /**
-     * @brief Sets the maximum number of results to return
+     * @brief Sets the maximum number of results to return.
      */
-    SearchCriteria& set_max_results(size_t max);
+    void set_max_results(size_t max);
 
     /**
-     * @brief Checks if a file size matches the size filter
+     * @brief Gets the maximum number of results to return.
      */
-    bool matches_size_filter(size_t file_size) const;
-
-    // Getters
-    const std::string& get_terms() const;
-    const std::string& get_size_filter() const;
-    const std::string& get_date_filter() const;
-    const DynamicArray<std::string>& get_tags() const;
     size_t get_max_results() const;
 };
 

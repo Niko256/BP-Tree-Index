@@ -18,8 +18,3 @@ struct FileSystemStats {
     HashTable<std::string, size_t> size_distribution;
     HashTable<std::string, size_t> age_distribution;
 };
-
-struct DuplicateGroup {
-    std::string hash;
-    DynamicArray<std::string> paths;
-};
