@@ -1,47 +1,6 @@
 #include "BP-Tree.hpp"
 
 
-// ---------------- INTERNAL NODE METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order>
-bool InternalNode<Key, RecordId, Order>::is_full() const {
-    return keys_.size() >= Order - 1;
-}
-
-template <typename Key, typename RecordId, size_t Order>
-size_t InternalNode<Key, RecordId, Order>::size() const {
-    return keys_.size();
-}
-
-template <typename Key, typename RecordId, size_t Order>
-void InternalNode<Key, RecordId, Order>::insert_key_at(size_t index, const Key& key) {
-    keys_.insert(keys_.begin() + index, key);
-}
-
-template <typename Key, typename RecordId, size_t Order>
-void InternalNode<Key, RecordId, Order>::insert_key_at(size_t index, Key&& key) {
-    keys_.insert(keys_.begin() + index, std::move(key));
-}
-
-// ---------------- LEAF NODE METHODS IMPLEMENTATION ----------------
-
-template <typename Key, typename RecordId, size_t Order>
-size_t LeafNode<Key, RecordId, Order>::size() const {
-    return keys_.size();
-}
-
-template <typename Key, typename RecordId, size_t Order>
-bool LeafNode<Key, RecordId, Order>::is_full() const {
-    return keys_.size() >= Order - 1;
-}
-
-template <typename Key, typename RecordId, size_t Order>
-RecordId LeafNode<Key, RecordId, Order>::get_record(size_t index) const {
-    if (index >= values_.size()) {
-        throw std::out_of_range("Index out of range in get_record method");
-    }
-    return values_[index];
-}
 
 // ---------------- ITERATOR METHODS IMPLEMENTATION ----------------
 

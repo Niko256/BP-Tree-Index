@@ -97,4 +97,3 @@ class SearchCriteria {
     size_t get_max_results() const;
 };
 
-#include "Search-Criteria.tpp"

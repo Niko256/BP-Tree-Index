@@ -1,4 +1,3 @@
-// CLI.hpp
 #pragma once
 
 #include "File-Indexer.hpp"
@@ -55,5 +54,3 @@ class CLI {
      */
     void run();
 };
-
-#include "CLI.tpp"

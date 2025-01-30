@@ -87,4 +87,3 @@ class FileIndexer {
 
 };
 
-#include "File-Indexer.tpp"

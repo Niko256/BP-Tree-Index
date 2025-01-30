@@ -20,13 +20,15 @@ target_include_directories(BPlusTreeLib PUBLIC ${CMAKE_SOURCE_DIR}/src)
 
 file(GLOB INDEXER_SOURCES
     src/File-Indexer/*.hpp
+    src/File-Indexer/*.cpp
 )
 
-add_library(FileIndexerLib INTERFACE)
-target_include_directories(FileIndexerLib INTERFACE 
+add_library(FileIndexerLib STATIC ${INDEXER_SOURCES})
+target_include_directories(FileIndexerLib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/external
 )
+set_target_properties(FileIndexerLib PROPERTIES LINKER_LANGUAGE CXX)
 
 add_executable(Index src/main.cpp)
 target_link_libraries(Index PRIVATE 
