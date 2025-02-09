@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
 find_package(GTest REQUIRED)
-find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
 file(GLOB_RECURSE IMPL src/*.tpp)
@@ -23,21 +22,6 @@ file(GLOB INDEXER_SOURCES
     src/File-Indexer/*.cpp
 )
 
-add_library(FileIndexerLib STATIC ${INDEXER_SOURCES})
-target_include_directories(FileIndexerLib PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/external
-)
-set_target_properties(FileIndexerLib PROPERTIES LINKER_LANGUAGE CXX)
-
-add_executable(Index src/main.cpp)
-target_link_libraries(Index PRIVATE 
-    BPlusTreeLib
-    FileIndexerLib
-    OpenSSL::Crypto
-    Threads::Threads
-)
-
 if(GTEST_FOUND)
     enable_testing()
 
@@ -47,8 +31,6 @@ if(GTEST_FOUND)
     target_link_libraries(tests
         PRIVATE
         BPlusTreeLib
-        FileIndexerLib
-        OpenSSL::Crypto
         Threads::Threads
         GTest::GTest
         GTest::Main
